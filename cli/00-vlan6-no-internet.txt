@@ -1,0 +1,12 @@
+# RouterOS（VLAN 6 閘道）以 VLAN 6 的位址當來源 ping 8.8.8.8 → 出不去（上游沒有替 192.168.16.0/24 做 NAT）
+# 對照組：以管理網段位址 10.0.1.254 當來源 → 通（所以不是 8.8.8.8 本身不通）
+> /ping address=8.8.8.8 count=3 src-address=192.168.16.254
+=seq=0 =host=8.8.8.8 =status=timeout =sent=1 =received=0 =packet-loss=100
+=seq=1 =host=8.8.8.8 =status=timeout =sent=2 =received=0 =packet-loss=100
+=seq=2 =host=8.8.8.8 =status=timeout =sent=3 =received=0 =packet-loss=100
+
+> /ping address=8.8.8.8 count=3 src-address=10.0.1.254
+=seq=0 =host=8.8.8.8 =time=12ms =sent=1 =received=1 =packet-loss=0
+=seq=1 =host=8.8.8.8 =time=3ms =sent=2 =received=2 =packet-loss=0
+=seq=2 =host=8.8.8.8 =time=3ms =sent=3 =received=3 =packet-loss=0
+

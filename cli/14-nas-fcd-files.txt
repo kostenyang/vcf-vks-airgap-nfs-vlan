@@ -1,0 +1,12 @@
+$ ls -la /export/vks-ds/fcd   # NAS 上
+total 151656
+drwxr-xr-x 2 root root       4096 Oct 13 16:10 .
+drwxrwxrwx 5 root root       4096 Oct 13 16:09 ..
+-rwxrwxr-x 1 root root         92 Oct 13 16:11 .lck-81c0cc0000000000
+-rw------- 1 root root     135168 Oct 13 16:10 617951ff5f5546cbae092bf04044aa02-dcd13d4c814eed1e.vmfd
+-rw------- 1 root root 5368709120 Oct 13 16:10 617951ff5f5546cbae092bf04044aa02-flat.vmdk
+-rw------- 1 root root        846 Oct 13 16:10 617951ff5f5546cbae092bf04044aa02.vmdk
+
+$ du -sh /export/vks-ds/fcd   # NAS 上
+149M	/export/vks-ds/fcd
+

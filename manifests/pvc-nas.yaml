@@ -1,0 +1,42 @@
+# NFS（VLAN 7）做 PV：PVC 用 StorageClass vks-nas（= storage policy vks-nas → tag vks-storage:nas → NFS datastore nas-vks-ds）
+#   PV 是 nas-vks-ds 上的一顆 VMDK（First Class Disk）。Pod 只看到一顆區塊磁碟；
+#   NFS 是 ESXi 用 vmk3（VLAN 7）掛的，資料路徑是 VM → ESXi → vmk3 → NAS，不經過 VKS 節點網路、也不經過 VNA
+#   PSA restricted：非 root + fsGroup 讓 kubelet 把 volume 改成可寫
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nas-demo
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data-on-nas
+  namespace: nas-demo
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: vks-nas
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: writer
+  namespace: nas-demo
+spec:
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+    seccompProfile: {type: RuntimeDefault}
+  containers:
+  - name: c
+    image: harbor01.home.lab/vks-apps/busybox:1.37.0
+    command: ["sh", "-c", "echo \"hello from NAS PV $(date -u)\" >> /data/hello.txt; df -h /data; cat /data/hello.txt; sleep 86400"]
+    volumeMounts:
+    - {name: data, mountPath: /data}
+    securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: ["ALL"]}}
+  volumes:
+  - name: data
+    persistentVolumeClaim: {claimName: data-on-nas}

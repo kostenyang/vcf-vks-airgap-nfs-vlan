@@ -1,0 +1,97 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  body { margin: 0; overflow: hidden; background: #fff; font-family: "Microsoft JhengHei", "Segoe UI", sans-serif; }
+  svg text { font-family: "Microsoft JhengHei", "Segoe UI", sans-serif; }
+  .t { font-size: 15px; fill: #1f2937; }
+  .s { font-size: 13px; fill: #4b5563; }
+  .h { font-size: 17px; font-weight: 700; fill: #111827; }
+  .w { font-size: 14px; font-weight: 700; fill: #fff; }
+</style></head>
+<body>
+<svg id="d" xmlns="http://www.w3.org/2000/svg" width="1400" height="760" viewBox="0 0 1400 760">
+  <defs>
+    <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker>
+    <marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#ea580c"/></marker>
+  </defs>
+
+  <!-- 管理網段 -->
+  <rect x="20" y="16" width="1360" height="70" rx="10" fill="#f3f4f6" stroke="#9ca3af"/>
+  <text x="40" y="44" class="h">管理網段 10.0.0.0/23</text>
+  <text x="40" y="70" class="s">vCenter · NSX Manager · SDDC Manager · ESXi vmk0 · Supervisor 管理 10.0.1.222-226 · VNA 管理 10.0.1.209</text>
+  <rect x="1040" y="28" width="320" height="46" rx="8" fill="#ecfdf5" stroke="#059669"/>
+  <text x="1056" y="50" class="t" font-weight="700">外部 Harbor harbor01.home.lab</text>
+  <text x="1056" y="68" class="s">10.0.0.86 · 自簽 CA · 主機也擋對外連線</text>
+
+  <!-- ESXi 叢集 -->
+  <rect x="20" y="110" width="930" height="560" rx="12" fill="#f8fafc" stroke="#64748b" stroke-width="2"/>
+  <text x="40" y="140" class="h">ESXi ×3（vcf-m06-esx01..03）· vSAN · VDS vcf-m06-cl01-vds01</text>
+
+  <!-- VKS node VM -->
+  <rect x="50" y="170" width="300" height="200" rx="10" fill="#fff" stroke="#334155" stroke-width="1.5"/>
+  <text x="66" y="198" class="h">VKS 節點 VM</text>
+  <text x="66" y="220" class="s">vks-cl01（CP .50 / worker .51）</text>
+  <rect x="66" y="236" width="268" height="44" rx="6" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="80" y="263" class="t">eth0 → VPC public subnet</text>
+  <rect x="66" y="296" width="268" height="58" rx="6" fill="#ffedd5" stroke="#ea580c"/>
+  <text x="80" y="320" class="t">虛擬磁碟 /dev/sdb</text>
+  <text x="80" y="342" class="s">PV = FCD VMDK（StorageClass vks-nas）</text>
+
+  <!-- VPC / TGW / VNA -->
+  <rect x="430" y="170" width="250" height="110" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="446" y="198" class="h">VPC / Transit Gateway</text>
+  <text x="446" y="222" class="s">Distributed VLAN Connection</text>
+  <text x="446" y="242" class="s">External IP Block vks-block</text>
+  <text x="446" y="262" class="s">（LB VIP .33 / .34 等）</text>
+  <rect x="720" y="288" width="200" height="104" rx="10" fill="#1d4ed8"/>
+  <text x="736" y="312" class="w">VNA vks-vna</text>
+  <text x="736" y="333" class="w" font-weight="400">vcf-m06-vna01a</text>
+  <text x="736" y="355" class="w" font-weight="400">LoadBalancer 等 VPC 服務</text>
+  <text x="736" y="377" class="w" font-weight="400">（LB 流量實測經過）</text>
+  <path d="M600,282 C620,330 680,335 718,335" stroke="#2563eb" stroke-width="2.5" stroke-dasharray="6 4" fill="none" marker-end="url(#ab)"/>
+
+  <!-- ESXi storage stack + vmk3 -->
+  <rect x="430" y="400" width="250" height="90" rx="10" fill="#fff7ed" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="446" y="430" class="h">ESXi 儲存堆疊</text>
+  <text x="446" y="454" class="s">NFS 3 datastore nas-vks-ds</text>
+  <text x="446" y="474" class="s">Vmknic binding = vmk3</text>
+  <rect x="720" y="400" width="200" height="90" rx="10" fill="#ea580c"/>
+  <text x="740" y="430" class="w">vmk3（nas-vlan7）</text>
+  <text x="740" y="454" class="w" font-weight="400">192.168.17.21-23</text>
+  <text x="740" y="476" class="w" font-weight="400">MTU 1500 · 不勾服務</text>
+
+  <!-- 說明：NSX 不參與 -->
+  <rect x="50" y="540" width="870" height="110" rx="10" fill="#fff" stroke="#cbd5e1" stroke-dasharray="6 4"/>
+  <text x="70" y="572" class="t" font-weight="700">NFS 完全不進 NSX / VPC：</text>
+  <text x="70" y="598" class="s">① 節點只看到一顆虛擬磁碟，不掛 NFS　② ESXi 用 vmk3 在 VLAN 7 直接到 NAS（同一段 L2，不經閘道）</text>
+  <text x="70" y="622" class="s">③ Vmknic binding 讓 NFS 固定從 vmk3 出去　④ VLAN 7 沒有加進 Transit Gateway，NSX / VNA 只處理 VLAN 6 的 VPC 流量</text>
+
+  <!-- 外部：VLAN 6 / VLAN 7 -->
+  <rect x="1010" y="170" width="370" height="110" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="1030" y="200" class="h">VLAN 6 · 192.168.16.0/24</text>
+  <text x="1030" y="224" class="s">閘道 192.168.16.254（沒有 NAT → 出不了網際網路）</text>
+  <text x="1030" y="248" class="s">Pod 對外、LB VIP、拉 Harbor image</text>
+  <rect x="1010" y="400" width="370" height="130" rx="10" fill="#fff7ed" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="1030" y="430" class="h">VLAN 7 · 192.168.17.0/24</text>
+  <text x="1030" y="456" class="t" font-weight="700">NAS nfs-vks01 192.168.17.20</text>
+  <text x="1030" y="480" class="s">/export/vks-ds（NFS 3，no_root_squash）</text>
+  <text x="1030" y="504" class="s">閘道 .254 沒有 NAT</text>
+
+  <!-- 藍色路徑：VPC -->
+  <path d="M334,258 L428,225" stroke="#2563eb" stroke-width="4" fill="none" marker-end="url(#ab)"/>
+  <path d="M680,225 L1008,225" stroke="#2563eb" stroke-width="4" fill="none" marker-end="url(#ab)"/>
+  <!-- 橘色路徑：NFS -->
+  <path d="M334,325 C390,325 380,445 428,445" stroke="#ea580c" stroke-width="4" fill="none" marker-end="url(#ao)"/>
+  <path d="M680,445 L718,445" stroke="#ea580c" stroke-width="4" fill="none" marker-end="url(#ao)"/>
+  <path d="M920,445 L1008,445" stroke="#ea580c" stroke-width="4" fill="none" marker-end="url(#ao)"/>
+
+  <!-- 圖例 -->
+  <line x1="1010" y1="600" x2="1060" y2="600" stroke="#2563eb" stroke-width="4"/>
+  <text x="1070" y="605" class="t">VPC 流量（Pod、Service；LB 由 VNA 處理）</text>
+  <line x1="1010" y1="635" x2="1060" y2="635" stroke="#ea580c" stroke-width="4"/>
+  <text x="1070" y="640" class="t">PV 讀寫（NFS）：不進 NSX，不經過 VNA</text>
+
+  <text x="20" y="720" class="s">實測：Pod 寫 1 GiB 到 PV → NAS 收到 1025 MiB、worker 虛擬磁碟寫入 1074 MB、VNA 網路 0.7 MB；</text>
+  <text x="20" y="744" class="s">對照組：同一個 1 GiB 經 VPC LoadBalancer 下載 → VNA 網路 1083 MB。</text>
+</svg>
+</body></html>

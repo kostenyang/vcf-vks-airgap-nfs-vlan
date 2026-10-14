@@ -1,0 +1,36 @@
+# 證明 PV 的 NFS 流量不經過 VNA（vks-cl01 worker 在 esx03，VNA 在 esx01）
+# 量法：vCenter realtime 效能計數器（20 秒一點，scripts/Measure-VmTraffic.ps1）+ NAS eth0 rx_bytes
+
+## A. Pod 在 NAS PV 上寫 1 GiB
+$ kubectl -n nas-demo exec writer -- dd if=/dev/zero of=/data/1g.bin bs=1M count=1024 conv=fsync
+1073741824 bytes (1.0GB) copied, 6.533426 seconds, 156.7MB/s
+
+NAS eth0 rx_bytes 增加：1025 MiB
+
+VM                                            網路收        網路送        虛擬磁碟寫入
+vcf-m06-vna01a（VNA）                          0.7 MB        0.7 MB        —
+vks-cl01-vks-cl01-np-1-...（worker）           0.1 MB        0.1 MB        1074.2 MB
+
+→ 寫入在 worker 上是「虛擬磁碟寫入」，不是網路流量；由 ESXi 經 vmk3 送到 NAS。VNA 完全沒有經手。
+
+$ ss -tn state established '( sport = :2049 )'   # NAS 上：誰連進來
+Recv-Q Send-Q Local Address:Port  Peer Address:PortProcess
+0      0      192.168.17.20:2049 192.168.17.23:804        
+0      0      192.168.17.20:2049 192.168.17.22:912        
+0      0      192.168.17.20:2049 192.168.17.21:728
+
+→ NFS 連線只來自三台 ESXi 的 vmk3（192.168.17.21-23），沒有任何 VKS 節點（192.168.16.x）或 VNA。
+
+## B. 對照組：同一個 1 GiB 檔案經 VPC LoadBalancer 下載（path-control-lb.yaml）
+$ kubectl -n nas-demo get svc nas-http-lb
+NAME          TYPE           CLUSTER-IP     EXTERNAL-IP     PORT(S)        AGE
+nas-http-lb   LoadBalancer   10.108.187.0   192.168.16.34   80:32007/TCP   4m57s
+
+$ curl -o /dev/null http://192.168.16.34/1g.bin     # 從管理網段
+downloaded 1073741824 bytes in 21.0s, http 200
+
+VM                                            網路收        網路送        虛擬磁碟寫入
+vcf-m06-vna01a（VNA）                          1082.9 MB     1083.0 MB     —
+vks-cl01-vks-cl01-np-1-...（worker）           11.9 MB       1072.6 MB     1.9 MB
+
+→ 走 VPC 的流量 VNA 一定看得到（1 GiB 進、1 GiB 出），所以 A 的 0.7 MB 代表 NFS 真的沒有經過 VNA。

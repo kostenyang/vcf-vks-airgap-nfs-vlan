@@ -1,0 +1,15 @@
+### vcf-m06-esx01.home.lab
+nfs  nas-vks-ds  192.168.17.20:/export/vks-ds  accessible=true mounted=true
+vmk3 192.168.17.21/255.255.255.0
+tcp  192.168.17.21:728 -> 192.168.17.20:2049  ESTABLISHED
+
+### vcf-m06-esx02.home.lab
+nfs  nas-vks-ds  192.168.17.20:/export/vks-ds  accessible=true mounted=true
+vmk3 192.168.17.22/255.255.255.0
+tcp  192.168.17.22:912 -> 192.168.17.20:2049  ESTABLISHED
+
+### vcf-m06-esx03.home.lab
+nfs  nas-vks-ds  192.168.17.20:/export/vks-ds  accessible=true mounted=true
+vmk3 192.168.17.23/255.255.255.0
+tcp  192.168.17.23:804 -> 192.168.17.20:2049  ESTABLISHED
+

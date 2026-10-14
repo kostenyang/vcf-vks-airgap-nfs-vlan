@@ -1,0 +1,17 @@
+$ kubectl -n demo get pods -o wide
+NAME                     READY   STATUS    RESTARTS   AGE   IP          NODE                                       NOMINATED NODE   READINESS GATES
+nginx-5658995685-p9627   1/1     Running   0          68s   10.95.1.8   vks-cl01-vks-cl01-np-1-d9xr2-qbwl9-szl6l   <none>           <none>
+nginx-5658995685-pq6ld   1/1     Running   0          68s   10.95.1.7   vks-cl01-vks-cl01-np-1-d9xr2-qbwl9-szl6l   <none>           <none>
+
+$ kubectl -n demo describe pod -l app=nginx | grep -E "Image:|Pulled"
+Image:          harbor01.home.lab/vks-apps/nginx-unprivileged:1.30.4-alpine
+kubelet: Successfully pulled image "harbor01.home.lab/vks-apps/nginx-unprivileged:1.30.4-alpine" in 104ms (2.835s including waiting). Image size: 61458867 bytes.
+Image:          harbor01.home.lab/vks-apps/nginx-unprivileged:1.30.4-alpine
+kubelet: Successfully pulled image "harbor01.home.lab/vks-apps/nginx-unprivileged:1.30.4-alpine" in 2.802s (2.802s including waiting). Image size: 61458867 bytes.
+
+$ kubectl -n demo get svc nginx-lb
+NAME       TYPE           CLUSTER-IP     EXTERNAL-IP     PORT(S)        AGE
+nginx-lb   LoadBalancer   10.110.46.25   192.168.16.33   80:31982/TCP   68s
+
+$ curl -s http://192.168.16.33/ | grep title      # 從管理網段執行
+<title>Welcome to nginx!</title>

@@ -1,0 +1,3 @@
+vcf-m06-esx01.home.lab  vmk3 -> 192.168.17.20  sent 3 / recv 3  rtt avg 504 us
+vcf-m06-esx02.home.lab  vmk3 -> 192.168.17.20  sent 3 / recv 3  rtt avg 603 us
+vcf-m06-esx03.home.lab  vmk3 -> 192.168.17.20  sent 3 / recv 3  rtt avg 556 us

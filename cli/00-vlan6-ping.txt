@@ -1,0 +1,8 @@
+esxcli network diag ping -H 192.168.16.254 -I vmk3 -c 3   (PowerCLI Get-EsxCli -V2, vcf-m06-esx03)
+
+Transmitted    : 3
+Received       : 3
+PacketLost     : 0
+RoundtripMinMS : 0
+RoundtripAvgMS : 0
+RoundtripMaxMS : 1

@@ -1,0 +1,17 @@
+$ kubectl -n nas-demo get pvc
+NAME          STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+data-on-nas   Bound    pvc-9bf1617d-bd6c-4487-b12b-56a521eec155   5Gi        RWO            vks-nas        <unset>                 86s
+
+$ kubectl -n nas-demo logs writer
+Filesystem                Size      Used Available Use% Mounted on
+/dev/sdb                  4.8G      1.3M      4.6G   0% /data
+hello from NAS PV Tue Oct 13 16:15:28 UTC 2026
+
+$ kubectl -n nas-demo exec writer -- mount | grep /data   # Pod 看到的是區塊磁碟，不是 NFS
+/dev/sdb on /data type ext4 (rw,relatime)
+
+$ kubectl -n vks-lab get pvc   # Supervisor 端（context vks-lab）：節點系統碟在 vks-ftt0、guest 的 PV 在 vks-nas
+NAME                                                                        CAPACITY   STORAGECLASS
+cf2b08b2-baaf-4ada-80e6-faf418c7fc3e-9bf1617d-bd6c-4487-b12b-56a521eec155   5Gi        vks-nas
+vks-cl01-mqr72-xhxtr-1987f94d                                               20Gi       vks-ftt0
+vks-cl01-vks-cl01-np-1-d9xr2-qbwl9-szl6l-a3414647                           20Gi       vks-ftt0

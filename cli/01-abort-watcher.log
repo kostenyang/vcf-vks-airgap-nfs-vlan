@@ -1,0 +1,14 @@
+2026-10-13 14:09:32 >>> TRIGGER: [('Update VCF Management Services Deployment Status', 'POSTVALIDATION_COMPLETED_WITH_SUCCESS'), ('Deploy VCF Management Services via SDDC Manager', 'POSTVALIDATION_COMPLETED_WITH_SUCCESS'), ('Monitor VCF Management Services Deployment Task', 'IN_PROGRESS')]
+2026-10-13 14:09:32 step 1: stop domainmanager on installer 10.0.1.135
+2026-10-13 14:09:36   systemctl is-active → failed（已停止）
+2026-10-13 14:09:36 step 2: restart domainmanager on SDDC Manager 10.0.1.201(砍掉進行中的 VSP 任務)
+2026-10-13 14:09:47   systemctl is-active → active
+2026-10-13 14:09:47 step 3: 等 60 秒,刪除 inner vCenter 上 VSP 相關 VM
+2026-10-13 14:10:47   VSP-looking VMs: none
+2026-10-13 14:10:47 step 4: start domainmanager on installer 10.0.1.135
+2026-10-13 14:10:55   systemctl is-active → active
+2026-10-13 14:10:55 ABORT COMPLETE — 之後 30 分鐘每 2 分鐘確認沒有重送 / 沒有新的 VSP VM
+（post-check：之後 30 分鐘每 2 分鐘確認一次）
+2026-10-13 14:12:56   post-check installer status=COMPLETED_WITH_FAILURE running=[] vsp_vms=[]
+2026-10-13 14:41:13   post-check installer status=COMPLETED_WITH_FAILURE running=[] vsp_vms=[]
+2026-10-13 14:41:13 POST-CHECK DONE

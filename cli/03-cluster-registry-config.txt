@@ -1,0 +1,24 @@
+$ kubectl get clusterregistryconfigs
+NAME                               SERVER
+image-registry-b4e48d45fcb0dac25   harbor01.home.lab
+
+$ kubectl get clusterregistryconfigs -o yaml   # caCerts 截短
+apiVersion: v1
+items:
+- apiVersion: containerregistry.vmware.com/v1alpha1
+  kind: ClusterRegistryConfig
+  metadata:
+    creationTimestamp: "2026-10-13T15:53:15Z"
+    generation: 1
+    labels:
+      supervisor.vmware.com/image-registry: ""
+    name: image-registry-b4e48d45fcb0dac25
+    resourceVersion: "17486"
+    uid: d0d96d0a-2431-4324-9bda-528ac82844dc
+  spec:
+    caCerts:
+    - data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUZoVENDQTIyZ0F3SUJB...（Harbor CA 公開憑證，base64，略）
+    server: harbor01.home.lab
+kind: List
+metadata:
+  resourceVersion: ""

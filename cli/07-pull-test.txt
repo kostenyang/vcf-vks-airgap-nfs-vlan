@@ -1,0 +1,12 @@
+$ kubectl -n demo get pod from-dockerhub from-harbor
+NAME             READY   STATUS             RESTARTS   AGE
+from-dockerhub   0/1     ImagePullBackOff   0          54s
+from-harbor      0/1     Completed          0          54s
+
+$ kubectl -n demo logs from-harbor
+hello-from-harbor
+<title>Welcome to nginx!</title>
+
+$ kubectl -n demo get events --field-selector involvedObject.name=from-dockerhub   # reason=Failed
+Failed to pull image "docker.io/library/busybox:1.37.0": ... failed to resolve image: failed to do request:
+  Head "https://registry-1.docker.io/v2/library/busybox/manifests/1.37.0": dial tcp 100.60.245.70:443: i/o timeout

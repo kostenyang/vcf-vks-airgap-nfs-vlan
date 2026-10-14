@@ -1,0 +1,24 @@
+# 反向測試:同一個 busybox,docker.io 拉不到(air-gap)、Harbor 拉得到
+apiVersion: v1
+kind: Pod
+metadata: {name: from-dockerhub, namespace: demo}
+spec:
+  restartPolicy: Never
+  securityContext: {runAsNonRoot: true, runAsUser: 1000, seccompProfile: {type: RuntimeDefault}}
+  containers:
+  - name: c
+    image: docker.io/library/busybox:1.37.0
+    command: ["sh", "-c", "echo hello-from-dockerhub"]
+    securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: ["ALL"]}}
+---
+apiVersion: v1
+kind: Pod
+metadata: {name: from-harbor, namespace: demo}
+spec:
+  restartPolicy: Never
+  securityContext: {runAsNonRoot: true, runAsUser: 1000, seccompProfile: {type: RuntimeDefault}}
+  containers:
+  - name: c
+    image: harbor01.home.lab/vks-apps/busybox:1.37.0
+    command: ["sh", "-c", "echo hello-from-harbor; wget -q -T 5 -O - http://nginx-lb.demo.svc/ | grep -o '<title>.*</title>'"]
+    securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: ["ALL"]}}

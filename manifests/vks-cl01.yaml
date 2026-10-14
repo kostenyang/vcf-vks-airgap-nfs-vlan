@@ -1,0 +1,58 @@
+# VKS 叢集 vks-cl01：vSphere Client（LCI）精靈產生的 YAML（UI 送出，沒有手改）
+#   storageClass vks-ftt0           → 節點的系統碟放 vSAN
+#   defaultStorageClass vks-nas     → guest 裡的預設 StorageClass = NAS（PVC 不指定 storageClassName 也落在 NAS）
+#   networks.primary = SubnetSet public（VPC public subnet，VLAN 6）
+#   沒有任何 registry / trust 設定：Harbor CA 由 Supervisor Container Registries 下發
+apiVersion: cluster.x-k8s.io/v1beta2
+kind: Cluster
+metadata:
+  name: vks-cl01
+  namespace: vks-lab
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks:
+        - 10.95.0.0/16
+    services:
+      cidrBlocks:
+        - 10.96.0.0/12
+    serviceDomain: cluster.local
+  topology:
+    classRef:
+      name: builtin-generic-v3.7.0
+      namespace: vmware-system-vks-public
+    version: v1.36.2---vmware.2-vkr.3
+    variables:
+      - name: vmClass
+        value: best-effort-medium
+      - name: storageClass
+        value: vks-ftt0
+      - name: vsphereOptions
+        value:
+          persistentVolumes:
+            defaultStorageClass: vks-nas
+      - name: networks
+        value:
+          interfaces:
+            primary:
+              network:
+                name: public
+                kind: SubnetSet
+                apiVersion: crd.nsx.vmware.com/v1alpha1
+    controlPlane:
+      replicas: 1
+      metadata:
+        annotations:
+          run.tanzu.vmware.com/resolve-os-image: os-name=photon
+    workers:
+      machineDeployments:
+        - class: node-pool
+          name: vks-cl01-np-1
+          replicas: 1
+          metadata:
+            annotations:
+              run.tanzu.vmware.com/resolve-os-image: os-name=photon
+          variables:
+            overrides:
+              - name: vmClass
+                value: best-effort-small

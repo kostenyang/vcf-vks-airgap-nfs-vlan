@@ -1,0 +1,15 @@
+# 對照組：把 NAS PV 上的 1 GiB 檔案用 busybox httpd 經 VPC LoadBalancer（VNA）送出去
+#   kubectl -n nas-demo label pod writer app=writer
+#   kubectl -n nas-demo exec writer -- httpd -p 8080 -h /data
+#   curl -o /dev/null http://<EXTERNAL-IP>/1g.bin
+#   這次的流量一定經過 VNA（LB 在 VNA 上），用來證明「量 VNA 的網路計數器」這個方法量得到 VPC 流量
+apiVersion: v1
+kind: Service
+metadata:
+  name: nas-http-lb
+  namespace: nas-demo
+spec:
+  type: LoadBalancer
+  selector: {app: writer}
+  ports:
+  - {name: http, port: 80, targetPort: 8080, protocol: TCP}

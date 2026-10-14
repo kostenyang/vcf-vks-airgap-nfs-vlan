@@ -1,0 +1,44 @@
+# air-gap 驗證:image 從內部 Harbor(harbor01.home.lab/vks-apps)拉,不碰網際網路
+#   - 叢集預設 PSA = restricted → 用 nginx-unprivileged(uid 101、listen 8080)+ 完整 securityContext
+#   - Harbor CA 由 Supervisor → Configure → Container Registries 下發到 VKS 節點,不需要另外設 trust
+#   - LoadBalancer VIP 由 VNA 從 vks-block 配
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+  namespace: demo
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: nginx}
+  template:
+    metadata:
+      labels: {app: nginx}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+      - name: nginx
+        image: harbor01.home.lab/vks-apps/nginx-unprivileged:1.30.4-alpine
+        ports:
+        - containerPort: 8080
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities: {drop: ["ALL"]}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-lb
+  namespace: demo
+spec:
+  type: LoadBalancer
+  selector: {app: nginx}
+  ports:
+  - {name: http, port: 80, targetPort: 8080, protocol: TCP}

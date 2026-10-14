@@ -1,0 +1,11 @@
+$ kubectl get nodes -o wide
+NAME                                       STATUS   ROLES           AGE     VERSION            INTERNAL-IP     EXTERNAL-IP   OS-IMAGE                 KERNEL-VERSION          CONTAINER-RUNTIME
+vks-cl01-mqr72-xhxtr                       Ready    control-plane   3m52s   v1.36.2+vmware.2   192.168.16.50   <none>        VMware Photon OS/Linux   6.1.176-4.ph5 (amd64)   containerd://2.3.2+vmware.3-fips
+vks-cl01-vks-cl01-np-1-d9xr2-qbwl9-szl6l   Ready    <none>          105s    v1.36.2+vmware.2   192.168.16.51   <none>        VMware Photon OS/Linux   6.1.176-4.ph5 (amd64)   containerd://2.3.2+vmware.3-fips
+
+$ kubectl get sc
+NAME                   PROVISIONER              RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+vks-ftt0               csi.vsphere.vmware.com   Delete          Immediate              true                   2m54s
+vks-ftt0-latebinding   csi.vsphere.vmware.com   Delete          WaitForFirstConsumer   true                   2m54s
+vks-nas (default)      csi.vsphere.vmware.com   Delete          Immediate              true                   2m54s
+vks-nas-latebinding    csi.vsphere.vmware.com   Delete          WaitForFirstConsumer   true                   2m54s
