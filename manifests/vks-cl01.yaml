@@ -1,8 +1,7 @@
-# VKS 叢集 vks-cl01：vSphere Client（LCI）精靈產生的 YAML（UI 送出，沒有手改）
-#   storageClass vks-ftt0           → 節點的系統碟放 vSAN
-#   defaultStorageClass vks-nas     → guest 裡的預設 StorageClass = NAS（PVC 不指定 storageClassName 也落在 NAS）
-#   networks.primary = SubnetSet public（VPC public subnet，VLAN 6）
-#   沒有任何 registry / trust 設定：Harbor CA 由 Supervisor Container Registries 下發
+# VKS 叢集 vks-cl01：vSphere Client（Resources）精靈產生的 YAML（UI 送出，沒有手改）
+#   networks.primary   = SubnetSet public（eth0，VPC，VLAN 6 那一側）
+#   networks.secondary = Subnet nas-vlan7（eth1，VLAN 7 的 VLAN 延伸 subnet，接 NAS）
+#   沒有任何 registry / trust / NFS 設定：Harbor CA 由 Supervisor Container Registries 下發，NFS 由 guest 裡的 NFS CSI 掛
 apiVersion: cluster.x-k8s.io/v1beta2
 kind: Cluster
 metadata:
@@ -27,10 +26,6 @@ spec:
         value: best-effort-medium
       - name: storageClass
         value: vks-ftt0
-      - name: vsphereOptions
-        value:
-          persistentVolumes:
-            defaultStorageClass: vks-nas
       - name: networks
         value:
           interfaces:
@@ -39,6 +34,12 @@ spec:
                 name: public
                 kind: SubnetSet
                 apiVersion: crd.nsx.vmware.com/v1alpha1
+            secondary:
+              - name: eth1
+                network:
+                  name: nas-vlan7
+                  kind: Subnet
+                  apiVersion: crd.nsx.vmware.com/v1alpha1
     controlPlane:
       replicas: 1
       metadata:
@@ -48,7 +49,7 @@ spec:
       machineDeployments:
         - class: node-pool
           name: vks-cl01-np-1
-          replicas: 1
+          replicas: 2
           metadata:
             annotations:
               run.tanzu.vmware.com/resolve-os-image: os-name=photon

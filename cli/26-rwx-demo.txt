@@ -1,0 +1,19 @@
+$ kubectl -n rwx-demo get pvc
+NAME          STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+shared-data   Bound    pvc-57353ea0-3aff-4eeb-94fe-a62299da7beb   5Gi        RWX            nas-nfs-rwx    <unset>                 6m1s
+
+$ kubectl -n rwx-demo get pods -o wide
+NAME                      READY   STATUS    RESTARTS   AGE    IP          NODE                                       NOMINATED NODE   READINESS GATES
+writer-6fbffb985b-546m5   1/1     Running   0          6m1s   10.95.1.2   vks-cl01-vks-cl01-np-1-vtj9f-xdf86-gkc8r   <none>           <none>
+writer-6fbffb985b-n2m2p   1/1     Running   0          6m1s   10.95.2.2   vks-cl01-vks-cl01-np-1-vtj9f-xdf86-ntkmg   <none>           <none>
+
+$ kubectl -n rwx-demo exec writer-6fbffb985b-546m5 -- tail -6 /data/shared.log      # 兩台 worker 上的 Pod 寫同一個檔案
+03:12:09 writer-6fbffb985b-546m5 on vks-cl01-vks-cl01-np-1-vtj9f-xdf86-gkc8r
+03:12:11 writer-6fbffb985b-n2m2p on vks-cl01-vks-cl01-np-1-vtj9f-xdf86-ntkmg
+03:12:19 writer-6fbffb985b-546m5 on vks-cl01-vks-cl01-np-1-vtj9f-xdf86-gkc8r
+03:12:21 writer-6fbffb985b-n2m2p on vks-cl01-vks-cl01-np-1-vtj9f-xdf86-ntkmg
+03:12:29 writer-6fbffb985b-546m5 on vks-cl01-vks-cl01-np-1-vtj9f-xdf86-gkc8r
+03:12:31 writer-6fbffb985b-n2m2p on vks-cl01-vks-cl01-np-1-vtj9f-xdf86-ntkmg
+
+$ kubectl -n rwx-demo exec writer-6fbffb985b-546m5 -- mount | grep /data      # clientaddr = 這台 worker 的 eth1
+192.168.17.20:/export/vks-rwx/pvc-57353ea0-3aff-4eeb-94fe-a62299da7beb on /data type nfs4 (rw,relatime,vers=4.1,rsize=524288,wsize=524288,namlen=255,hard,proto=tcp,timeo=600,retrans=2,sec=sys,clientaddr=192.168.17.65,local_lock=none,addr=192.168.17.20)

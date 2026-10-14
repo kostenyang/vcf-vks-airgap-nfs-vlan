@@ -1,0 +1,14 @@
+# 對照組 C：worker 從 Harbor 拉 4 個沒快取的 image（約 430 MiB）
+#   路徑：節點 eth0 → VPC → Distributed Transit Gateway（ESXi 上）→ VLAN 6 → 路由器 → 管理網段 Harbor
+#   用來確認一般 VPC 對外流量會不會經過 VNA（image 是 distroless，容器起不來沒關係，只要 image 拉完）
+apiVersion: v1
+kind: Pod
+metadata: {name: egress-pull-test, namespace: demo}
+spec:
+  restartPolicy: Never
+  securityContext: {runAsNonRoot: true, runAsUser: 65532, seccompProfile: {type: RuntimeDefault}}
+  containers:
+  - {name: a, image: harbor01.home.lab/csi/nfsplugin:v4.13.4, command: ["/nonexistent"], securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: ["ALL"]}}}
+  - {name: b, image: harbor01.home.lab/csi/csi-provisioner:v6.3.0, command: ["/nonexistent"], securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: ["ALL"]}}}
+  - {name: c, image: harbor01.home.lab/csi/csi-resizer:v2.2.0, command: ["/nonexistent"], securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: ["ALL"]}}}
+  - {name: d, image: harbor01.home.lab/csi/csi-snapshotter:v8.6.0, command: ["/nonexistent"], securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: ["ALL"]}}}

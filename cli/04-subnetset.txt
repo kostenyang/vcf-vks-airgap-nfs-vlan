@@ -6,4 +6,4 @@ $ kubectl -n vks-lab get subnetset public -o jsonpath={.spec}
 {"accessMode":"Public","ipv4SubnetSize":16,"subnetDHCPConfig":{"mode":"DHCPDeactivated"}}
 
 $ kubectl -n vks-lab get subnetset public -o jsonpath={.status.conditions}
-[{"lastTransitionTime":"2026-10-13T16:01:43Z","message":"SubnetSet CR has been successfully created/updated","reason":"SubnetSetReady","status":"True","type":"Ready"}]
+[{"lastTransitionTime":"2026-10-14T02:42:35Z","message":"SubnetSet CR has been successfully created/updated","reason":"SubnetSetReady","status":"True","type":"Ready"}]

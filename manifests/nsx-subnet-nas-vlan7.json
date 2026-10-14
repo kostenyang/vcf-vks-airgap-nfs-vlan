@@ -1,0 +1,13 @@
+{
+  "display_name": "nas-vlan7-subnet",
+  "description": "VLAN 7 (NAS) L2 extension - VKS node eth1 for NFS; static IP allocation by NSX",
+  "access_mode": "Public",
+  "vlan_connection": "/infra/distributed-vlan-connections/nas-vlan7",
+  "ip_addresses": ["192.168.17.0/24"],
+  "ip_blocks": ["/infra/ip-blocks/nas-vlan7-block-V3BYgCnTl3"],
+  "advanced_config": {
+    "static_ip_allocation": {"enabled": true},
+    "connectivity_state": "DISCONNECTED"
+  },
+  "subnet_dhcp_config": {"mode": "DHCP_DEACTIVATED"}
+}

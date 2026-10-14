@@ -1,0 +1,24 @@
+$ curl -k -u "admin:$NSX_PASS" -X PATCH -H 'Content-Type: application/json' \
+    https://vcf-m06-nsx01.home.lab/policy/api/v1/orgs/default/projects/default/vpcs/vks-lab_cw1ha/subnets/nas-vlan7-sn -d @nsx-subnet-nas-vlan7.json
+HTTP 200
+
+$ curl ... GET /orgs/default/projects/default/vpcs/vks-lab_cw1ha/subnets/nas-vlan7-sn   # 重點欄位
+{
+ "display_name": "nas-vlan7-subnet",
+ "access_mode": "Public",
+ "vlan_connection": "/infra/distributed-vlan-connections/nas-vlan7",
+ "ip_addresses": [
+  "192.168.17.0/24"
+ ],
+ "advanced_config": {
+  "static_ip_allocation": {
+   "enabled": true
+  },
+  "connectivity_state": "DISCONNECTED"
+ },
+ "subnet_dhcp_config": {
+  "mode": "DHCP_DEACTIVATED"
+ }
+}
+
+status: [{"gateway_address": "192.168.17.254/24", "network_address": "192.168.17.0/24", "ip_address_type": "IPV4", "vlan_extension": {"vpc_gateway_connection_enable": false, "vlan_id": 7}}]

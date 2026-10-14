@@ -1,0 +1,15 @@
+$ echo $HARBOR_PASS | docker login harbor01.home.lab -u admin --password-stdin
+Login Succeeded
+$ docker load -i nfsplugin.tar && docker tag registry.k8s.io/sig-storage/nfsplugin:v4.13.4 harbor01.home.lab/csi/nfsplugin:v4.13.4 && docker push harbor01.home.lab/csi/nfsplugin:v4.13.4
+v4.13.4: digest: sha256:a9566b0bb42f327acbe992c78352962dd0a1fed90a1b3963a6eb93730398f2e5 size: 744
+$ docker load -i csi-provisioner.tar && docker tag registry.k8s.io/sig-storage/csi-provisioner:v6.3.0 harbor01.home.lab/csi/csi-provisioner:v6.3.0 && docker push harbor01.home.lab/csi/csi-provisioner:v6.3.0
+v6.3.0: digest: sha256:a85593efc95449a5140fad30af272f584bf14b34fa16cfb65cd4870ba2296528 size: 2465
+$ docker load -i csi-resizer.tar && docker tag registry.k8s.io/sig-storage/csi-resizer:v2.2.0 harbor01.home.lab/csi/csi-resizer:v2.2.0 && docker push harbor01.home.lab/csi/csi-resizer:v2.2.0
+v2.2.0: digest: sha256:8316b8714f2b6ca1d1406a9d469b53e83e639a189d55711c40f050cfb4993f39 size: 2465
+$ docker load -i csi-snapshotter.tar && docker tag registry.k8s.io/sig-storage/csi-snapshotter:v8.6.0 harbor01.home.lab/csi/csi-snapshotter:v8.6.0 && docker push harbor01.home.lab/csi/csi-snapshotter:v8.6.0
+v8.6.0: digest: sha256:e3b9b3620df058f49a79a8446f672565ed715ad63a17c8f349d0674d71599553 size: 2465
+$ docker load -i csi-node-driver-registrar.tar && docker tag registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.17.0 harbor01.home.lab/csi/csi-node-driver-registrar:v2.17.0 && docker push harbor01.home.lab/csi/csi-node-driver-registrar:v2.17.0
+v2.17.0: digest: sha256:bcbae17da6542f81eb34982fced81789b3a55c1ffac381904971ab817e6e09d0 size: 2465
+$ docker load -i livenessprobe.tar && docker tag registry.k8s.io/sig-storage/livenessprobe:v2.19.0 harbor01.home.lab/csi/livenessprobe:v2.19.0 && docker push harbor01.home.lab/csi/livenessprobe:v2.19.0
+v2.19.0: digest: sha256:c39e9c05f0d029cc16f7387ff7f1527a7cb98ff49cad807ad526834bf06bdc83 size: 2465
+logged-out

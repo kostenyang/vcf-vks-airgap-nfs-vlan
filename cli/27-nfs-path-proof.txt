@@ -1,0 +1,35 @@
+# 證明 Pod 的 NFS 流量走 VKS 節點的 eth1（VLAN 7），不經過 VNA
+# 量法：vCenter realtime 效能計數器（20 秒一點，scripts/Measure-VmTraffic.ps1）+ NAS eth0 rx_bytes
+# worker vks-cl01-vks-cl01-np-1-vtj9f-xdf86-gkc8r：eth0 = vNIC 4000（public）、eth1 = vNIC 4001（nas-vlan7-subnet）
+
+## A. Pod 在 RWX PV（NFS CSI → 192.168.17.20:/export/vks-rwx）上寫 1 GiB
+$ kubectl -n rwx-demo exec writer-6fbffb985b-546m5 -- dd if=/dev/zero of=/data/1g.bin bs=1M count=1024 conv=fsync
+1073741824 bytes (1.0GB) copied, 5.814452 seconds, 176.1MB/s
+
+NAS eth0 rx_bytes 增加：1025 MiB
+
+VM                                            網路收        網路送
+vcf-m06-vna01a（VNA）                          0.7 MB        0.9 MB
+vks-cl01-...-gkc8r（worker）                   1.0 MB        1079.6 MB
+
+worker 送出依 vNIC 分：
+  vNIC 4000（eth0，public）            0.0 MB
+  vNIC 4001（eth1，nas-vlan7-subnet）  1079.5 MB
+
+→ 1 GiB 全部從 eth1 送到 NAS；VNA 沒有經手。
+
+$ ss -tn state established '( sport = :2049 )'   # NAS 上：誰連進來
+Recv-Q Send-Q Local Address:Port  Peer Address:PortProcess
+0      0      192.168.17.20:2049 192.168.17.66:966        
+0      0      192.168.17.20:2049 192.168.17.65:702
+
+→ NFS 連線只來自兩台 worker 的 eth1（192.168.17.65 / .66）；沒有 192.168.16.x（eth0 / VPC）。
+
+## B. 對照組：經 VPC LoadBalancer 下載 1 GiB（同一套 VPC / VNA，10-14 00:25 量測）
+vcf-m06-vna01a（VNA）                          1082.9 MB     1083.0 MB
+→ LB 流量一定經過 VNA，VNA 的計數器量得到。
+
+## C. 對照組：worker 從 Harbor 拉 430 MB image（同一套 VPC / VNA，10-14 10:31 量測）
+vcf-m06-vna01a（VNA）                          2.0 MB        2.0 MB
+worker                                         429.8 MB      1.8 MB
+→ 一般 VPC 對外流量由 ESXi 上的 Distributed Transit Gateway 轉送，不經過 VNA。

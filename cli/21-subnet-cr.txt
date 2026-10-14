@@ -1,0 +1,8 @@
+$ kubectl -n vks-lab get subnet nas-vlan7
+NAME        ACCESSMODE   IPV4SUBNETSIZE   NETWORKADDRESSES
+nas-vlan7   Public                        192.168.17.0/24
+
+$ kubectl -n vks-lab get subnet nas-vlan7 -o yaml   # 重點欄位
+spec: {"accessMode":"Public","advancedConfig":{"connectivityState":"Disconnected","staticIPAllocation":{"enabled":true}},"ipAddresses":["192.168.17.0/24"],"subnetDHCPConfig":{"dhcpServerAdditionalConfig":{},"mode":"DHCPDeactivated"},"vlanConnectionName":"nas-vlan7","vpcName":":vks-lab_cw1ha"}
+status.networkAddresses: ["192.168.17.0/24"]  gatewayAddresses: ["192.168.17.254/24"]
+annotations: {"nsx.vmware.com/associated-resource":"default:vks-lab_cw1ha:nas-vlan7-sn"}

@@ -1,0 +1,32 @@
+$ kubectl apply -f rbac-csi-nfs.yaml -f csi-nfs-driverinfo.yaml -f csi-nfs-controller.yaml -f csi-nfs-node.yaml
+serviceaccount/csi-nfs-controller-sa created
+serviceaccount/csi-nfs-node-sa created
+clusterrole.rbac.authorization.k8s.io/nfs-external-provisioner-role created
+clusterrolebinding.rbac.authorization.k8s.io/nfs-csi-provisioner-binding created
+clusterrole.rbac.authorization.k8s.io/nfs-external-resizer-role created
+clusterrolebinding.rbac.authorization.k8s.io/nfs-csi-resizer-role created
+csidriver.storage.k8s.io/nfs.csi.k8s.io created
+deployment.apps/csi-nfs-controller created
+daemonset.apps/csi-nfs-node created
+
+$ kubectl -n kube-system get pods -l "app in (csi-nfs-controller,csi-nfs-node)" -o wide
+NAME                                  READY   STATUS    RESTARTS   AGE   IP              NODE                                       NOMINATED NODE   READINESS GATES
+csi-nfs-controller-64c96c5ccf-mfk9s   5/5     Running   0          37s   192.168.16.52   vks-cl01-vks-cl01-np-1-vtj9f-xdf86-ntkmg   <none>           <none>
+csi-nfs-node-5wf4j                    3/3     Running   0          37s   192.168.16.52   vks-cl01-vks-cl01-np-1-vtj9f-xdf86-ntkmg   <none>           <none>
+csi-nfs-node-6nqff                    3/3     Running   0          36s   192.168.16.50   vks-cl01-bk2xm-ngf48                       <none>           <none>
+csi-nfs-node-sm64n                    3/3     Running   0          36s   192.168.16.51   vks-cl01-vks-cl01-np-1-vtj9f-xdf86-gkc8r   <none>           <none>
+
+$ kubectl -n kube-system get pods -l "app in (csi-nfs-controller,csi-nfs-node)" -o jsonpath="{..image}" | tr " " "\n" | sort -u
+harbor01.home.lab/csi/csi-node-driver-registrar:v2.17.0
+harbor01.home.lab/csi/csi-provisioner:v6.3.0
+harbor01.home.lab/csi/csi-resizer:v2.2.0
+harbor01.home.lab/csi/csi-snapshotter:v8.6.0
+harbor01.home.lab/csi/livenessprobe:v2.19.0
+harbor01.home.lab/csi/nfsplugin:v4.13.4
+
+$ kubectl apply -f storageclass-nas-nfs-rwx.yaml && kubectl get sc
+storageclass.storage.k8s.io/nas-nfs-rwx created
+NAME                   PROVISIONER              RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+nas-nfs-rwx            nfs.csi.k8s.io           Delete          Immediate              true                   0s
+vks-ftt0               csi.vsphere.vmware.com   Delete          Immediate              true                   10m
+vks-ftt0-latebinding   csi.vsphere.vmware.com   Delete          WaitForFirstConsumer   true                   10m

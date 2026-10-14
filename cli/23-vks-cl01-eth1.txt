@@ -1,0 +1,19 @@
+# Supervisor（vks-lab）：VKS 節點的 eth1 接 nas-vlan7 Subnet，IP 由 NSX static allocation 配（.1-.63 已排除）
+$ kubectl -n vks-lab get subnetports | grep vks-cl01
+NAME                                                      VIFID                                  IPADDRESS          MACADDRESS
+vks-cl01-bk2xm-ngf48-nas-vlan7-eth1                       66353133-3330-4237-ad38-6330662d3437   192.168.17.64/24   04:50:56:00:38:01
+vks-cl01-bk2xm-ngf48-public-eth0                          33666233-3639-4736-ad61-6465652d3436   192.168.16.50/28   04:50:56:00:98:00
+vks-cl01-vks-cl01-np-1-vtj9f-xdf86-gkc8r-nas-vlan7-eth1   36666630-3630-4133-ad61-6137362d3464   192.168.17.65/24   04:50:56:00:38:02
+vks-cl01-vks-cl01-np-1-vtj9f-xdf86-gkc8r-public-eth0      66653734-3334-4264-ad35-6435312d3434   192.168.16.51/28   04:50:56:00:30:00
+vks-cl01-vks-cl01-np-1-vtj9f-xdf86-ntkmg-nas-vlan7-eth1   61663530-3631-4637-ad39-6366612d3433   192.168.17.66/24   04:50:56:00:a4:00
+vks-cl01-vks-cl01-np-1-vtj9f-xdf86-ntkmg-public-eth0      36656432-3664-4430-ad66-3334312d3433   192.168.16.52/28   04:50:56:00:e4:00
+
+== vks-cl01-bk2xm-ngf48
+  eth0  192.168.16.50
+  eth1  192.168.17.64
+== vks-cl01-vks-cl01-np-1-vtj9f-xdf86-gkc8r
+  eth0  192.168.16.51
+  eth1  192.168.17.65
+== vks-cl01-vks-cl01-np-1-vtj9f-xdf86-ntkmg
+  eth0  192.168.16.52
+  eth1  192.168.17.66
