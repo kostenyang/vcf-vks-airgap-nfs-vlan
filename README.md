@@ -11,6 +11,8 @@
 
 vSphere / NSX / Installer 的設定全部在 UI 操作並截圖；只有中止 bring-up、NAS 主機安裝、一個 NSX API（VLAN 延伸 subnet）、Kubernetes 內的安裝與驗證用 CLI。所有數值都是 lab 實際值，換到客戶環境時對照 [lab 值 ↔ 客戶環境對照表](#lab-值--客戶環境對照表)。
 
+> 🆕 **第二版（2026-10，lab m02）**：[`m02-vlan-vpc-vna-nfs-eth1/`](m02-vlan-vpc-vna-nfs-eth1/) —— External VLAN 用 /20 切法、主機無 TEP 時 Transit Gateway 精靈一路 DEPLOY、LoadBalancer VIP 的配置規則（最小可用 IP）、nested 環境 spherelet 被 vSAN NVMe HCL 擋的修法，以及「部署一個服務」的 kubectl 指令 demo。
+
 | 重點 | 做法 | 章節 |
 |---|---|---|
 | 不部署 VCFMS | VCF Installer bring-up 跑完 NSX，在 VCF Management Platform 開始時中止 | Part A |

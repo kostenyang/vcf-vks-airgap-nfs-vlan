@@ -1,0 +1,54 @@
+# 做法 2 驗證：RWX PVC，兩個 Pod（不同節點）同時寫同一個檔案
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rwx-demo
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shared-data
+  namespace: rwx-demo
+spec:
+  accessModes: ["ReadWriteMany"]
+  storageClassName: nas-nfs-rwx
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: writer
+  namespace: rwx-demo
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: writer}
+  template:
+    metadata:
+      labels: {app: writer}
+    spec:
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels: {app: writer}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+      - name: c
+        image: harbor01.home.lab/vks-apps/busybox:1.37.0
+        env:
+        - name: NODE
+          valueFrom: {fieldRef: {fieldPath: spec.nodeName}}
+        command: ["sh", "-c", "while true; do echo \"$(date -u +%T) $HOSTNAME on $NODE\" >> /data/shared.log; sleep 10; done"]
+        volumeMounts:
+        - {name: data, mountPath: /data}
+        securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: ["ALL"]}}
+      volumes:
+      - name: data
+        persistentVolumeClaim: {claimName: shared-data}

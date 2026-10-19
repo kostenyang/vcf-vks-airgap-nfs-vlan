@@ -1,0 +1,12 @@
+# 清掉已刪除叢集（m06）留在 NAS 上的殘留 session（client 已不存在、閒置 3.5h / 77h）
+$ sudo ss -K dst 192.168.33.3 dport = 938
+rc=0
+$ sudo ss -K dst 192.168.17.66 dport = 966
+rc=0
+$ sudo ss -K dst 192.168.17.65 dport = 702
+rc=0
+
+$ ss -tn state established '( sport = :2049 )'      # NAS 192.168.17.20
+Recv-Q Send-Q Local Address:Port  Peer Address:PortProcess
+0      0      192.168.17.20:2049 192.168.17.65:778        
+0      0      192.168.17.20:2049 192.168.17.66:706

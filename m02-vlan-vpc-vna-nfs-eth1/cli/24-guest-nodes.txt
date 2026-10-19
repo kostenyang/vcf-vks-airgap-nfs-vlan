@@ -1,0 +1,4 @@
+NAME                                       STATUS   ROLES           AGE     VERSION            INTERNAL-IP    EXTERNAL-IP   OS-IMAGE                 KERNEL-VERSION          CONTAINER-RUNTIME
+vks-cl01-c6nmq-hvfwt                       Ready    control-plane   5m38s   v1.36.2+vmware.2   192.168.33.2   <none>        VMware Photon OS/Linux   6.1.176-4.ph5 (amd64)   containerd://2.3.2+vmware.3-fips
+vks-cl01-vks-cl01-np-1-n6ktt-dgsfm-rhd45   Ready    <none>          85s     v1.36.2+vmware.2   192.168.33.4   <none>        VMware Photon OS/Linux   6.1.176-4.ph5 (amd64)   containerd://2.3.2+vmware.3-fips
+vks-cl01-vks-cl01-np-1-n6ktt-dgsfm-zlmj7   Ready    <none>          87s     v1.36.2+vmware.2   192.168.33.3   <none>        VMware Photon OS/Linux   6.1.176-4.ph5 (amd64)   containerd://2.3.2+vmware.3-fips

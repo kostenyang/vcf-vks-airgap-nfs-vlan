@@ -1,0 +1,17 @@
+# 做法 2：NFS CSI driver（csi-driver-nfs v4.13.4）的 StorageClass
+#   VKS 節點用 eth1（VLAN 7，nas-vlan7 Subnet）直接掛 NAS 192.168.17.20:/export/vks-rwx
+#   每個 PVC 在 share 底下建一個子目錄；mountPermissions 0777 讓 PSA restricted（非 root）的 Pod 也能寫
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: nas-nfs-rwx
+provisioner: nfs.csi.k8s.io
+parameters:
+  server: 192.168.17.20
+  share: /export/vks-rwx
+  mountPermissions: "0777"
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+allowVolumeExpansion: true
+mountOptions:
+  - nfsvers=4.1

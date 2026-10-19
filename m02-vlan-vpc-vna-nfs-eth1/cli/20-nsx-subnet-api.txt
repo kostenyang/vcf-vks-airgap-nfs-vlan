@@ -1,0 +1,6 @@
+$ curl -k -u "admin:$NSX_PASS" -X PATCH -H "Content-Type: application/json" \
+    https://vcf-m02-nsx01.home.lab/policy/api/v1/orgs/default/projects/default/vpcs/vks-lab_1na6e/subnets/nas-vlan7-sn \
+    -d @nsx-subnet-nas-vlan7.json
+HTTP 200
+{"display_name":"nas-vlan7-subnet","access_mode":"Public","ip_addresses":["192.168.17.0/24"],"vlan_connection":"/infra/distributed-vlan-connections/nas-vlan7","static":true}
+{"gateway_address":"192.168.17.254/24","network_address":"192.168.17.0/24","vlan_extension":{"vpc_gateway_connection_enable":false,"vlan_id":7}}
