@@ -1,0 +1,3 @@
+before: ['ESTAB 192.168.17.65:702', 'ESTAB 192.168.17.65:778', 'ESTAB 192.168.17.66:706', 'ESTAB 192.168.17.66:966', 'ESTAB 192.168.33.3:938']
+pvc probe-1: Bound
+new connections seen on NAS during provisioning (state peer):

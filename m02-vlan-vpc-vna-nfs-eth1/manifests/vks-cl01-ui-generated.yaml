@@ -1,0 +1,51 @@
+apiVersion: cluster.x-k8s.io/v1beta2
+kind: Cluster
+metadata:
+  name: vks-cl01
+  namespace: vks-lab
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks:
+        - 100.112.0.0/18
+    services:
+      cidrBlocks:
+        - 100.80.0.0/13
+    serviceDomain: cluster.local
+  topology:
+    classRef:
+      name: builtin-generic-v3.7.0
+      namespace: vmware-system-vks-public
+    version: v1.36.2---vmware.2-vkr.3
+    variables:
+      - name: vmClass
+        value: best-effort-small
+      - name: storageClass
+        value: vks-ftt0
+      - name: networks
+        value:
+          interfaces:
+            primary:
+              network:
+                name: nodes
+                kind: SubnetSet
+                apiVersion: crd.nsx.vmware.com/v1alpha1
+            secondary:
+              - name: eth1
+                network:
+                  name: nas-vlan7
+                  kind: Subnet
+                  apiVersion: crd.nsx.vmware.com/v1alpha1
+    controlPlane:
+      replicas: 1
+      metadata:
+        annotations:
+          run.tanzu.vmware.com/resolve-os-image: os-name=photon
+    workers:
+      machineDeployments:
+        - class: node-pool
+          name: vks-cl01-np-1
+          replicas: 2
+          metadata:
+            annotations:
+              run.tanzu.vmware.com/resolve-os-image: os-name=photon

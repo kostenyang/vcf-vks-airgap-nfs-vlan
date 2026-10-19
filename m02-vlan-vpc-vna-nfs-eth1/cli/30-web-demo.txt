@@ -1,0 +1,147 @@
+$ kubectl apply -f web-demo.yaml
+namespace/web-demo created
+persistentvolumeclaim/web-content created
+job.batch/seed-content created
+deployment.apps/web created
+service/web-lb created
+
+$ kubectl -n web-demo wait --for=condition=complete job/seed-content --timeout=180s
+job.batch/seed-content condition met
+
+$ kubectl -n web-demo rollout status deploy/web --timeout=180s
+Waiting for deployment "web" rollout to finish: 0 of 3 updated replicas are available...
+Waiting for deployment "web" rollout to finish: 1 of 3 updated replicas are available...
+Waiting for deployment "web" rollout to finish: 2 of 3 updated replicas are available...
+deployment "web" successfully rolled out
+
+$ kubectl -n web-demo get pvc,pods -o wide
+NAME                                STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE   VOLUMEMODE
+persistentvolumeclaim/web-content   Bound    pvc-af64e26d-2292-4880-8663-8efbe69d8ce6   1Gi        RWX            nas-nfs-rwx    <unset>                 7s    Filesystem
+
+NAME                       READY   STATUS      RESTARTS   AGE   IP            NODE                                       NOMINATED NODE   READINESS GATES
+pod/seed-content-xsp68     0/1     Completed   0          7s    100.112.2.7   vks-cl01-vks-cl01-np-1-n6ktt-dgsfm-rhd45   <none>           <none>
+pod/web-8458ff48d5-2hrcw   1/1     Running     0          7s    100.112.2.8   vks-cl01-vks-cl01-np-1-n6ktt-dgsfm-rhd45   <none>           <none>
+pod/web-8458ff48d5-5m4lj   1/1     Running     0          7s    100.112.1.4   vks-cl01-vks-cl01-np-1-n6ktt-dgsfm-zlmj7   <none>           <none>
+pod/web-8458ff48d5-h55vd   1/1     Running     0          7s    100.112.1.5   vks-cl01-vks-cl01-np-1-n6ktt-dgsfm-zlmj7   <none>           <none>
+
+$ kubectl -n web-demo get svc web-lb
+NAME     TYPE           CLUSTER-IP     EXTERNAL-IP     PORT(S)        AGE
+web-lb   LoadBalancer   100.82.31.19   192.168.32.33   80:32077/TCP   19s
+
+$ curl -s http://192.168.32.33/
+<h1>web-demo v1</h1><p>content on NFS (RWX PV)</p>
+
+<h1>web-demo v1</h1><p>content on NFS (RWX PV)</p>
+
+<h1>web-demo v1</h1><p>content on NFS (RWX PV)</p>
+
+# --- 192.168.32.33 是 IP block 排除範圍沒涵蓋到的系統段 IP；刪 Service → 排除改從 32.33 起 → 重新 apply ---
+$ kubectl -n web-demo delete svc web-lb --ignore-not-found
+
+$ kubectl apply -f web-demo.yaml
+namespace/web-demo unchanged
+persistentvolumeclaim/web-content unchanged
+job.batch/seed-content unchanged
+deployment.apps/web unchanged
+service/web-lb created
+
+$ kubectl -n web-demo get svc web-lb
+NAME     TYPE           CLUSTER-IP      EXTERNAL-IP    PORT(S)        AGE
+web-lb   LoadBalancer   100.81.252.68   192.168.34.0   80:31999/TCP   12s
+
+$ curl -s http://192.168.34.0/
+<h1>web-demo v1</h1><p>content on NFS (RWX PV)</p>
+
+
+# 3. 改內容：寫一次 PV，三個 Pod 同時生效
+$ kubectl -n web-demo run edit --rm -i --restart=Never --image=harbor01.home.lab/vks-apps/busybox:1.37.0 --overrides={"spec":{"securityContext":{"runAsNonRoot":true,"runAsUser":1000,"seccompProfile":{"type":"RuntimeDefault"}},"containers":[{"name":"edit","image":"harbor01.home.lab/vks-apps/busybox:1.37.0","command":["sh","-c","echo \"<h1>web-demo v2</h1><p>edited once on the NFS PV</p>\" > /content/index.html"],"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}},"volumeMounts":[{"name":"c","mountPath":"/content"}]}],"volumes":[{"name":"c","persistentVolumeClaim":{"claimName":"web-content"}}]}}
+If you don't see a command prompt, try pressing enter.
+pod "edit" deleted
+
+$ for i in 1 2 3 4 5 6; do curl -s http://192.168.34.0/; done
+<h1>web-demo v2</h1><p>edited once on the NFS PV</p>
+
+<h1>web-demo v2</h1><p>edited once on the NFS PV</p>
+
+<h1>web-demo v2</h1><p>edited once on the NFS PV</p>
+
+<h1>web-demo v2</h1><p>edited once on the NFS PV</p>
+
+<h1>web-demo v2</h1><p>edited once on the NFS PV</p>
+
+<h1>web-demo v2</h1><p>edited once on the NFS PV</p>
+
+
+# 4. 擴縮與滾動更新
+$ kubectl -n web-demo scale deploy/web --replicas=5
+deployment.apps/web scaled
+
+$ kubectl -n web-demo rollout status deploy/web --timeout=180s
+Waiting for deployment "web" rollout to finish: 3 of 5 updated replicas are available...
+Waiting for deployment "web" rollout to finish: 4 of 5 updated replicas are available...
+deployment "web" successfully rolled out
+
+$ kubectl -n web-demo get pods -l app=web -o wide
+NAME                   READY   STATUS    RESTARTS   AGE    IP             NODE                                       NOMINATED NODE   READINESS GATES
+web-8458ff48d5-2hrcw   1/1     Running   0          112s   100.112.2.8    vks-cl01-vks-cl01-np-1-n6ktt-dgsfm-rhd45   <none>           <none>
+web-8458ff48d5-5m4lj   1/1     Running   0          112s   100.112.1.4    vks-cl01-vks-cl01-np-1-n6ktt-dgsfm-zlmj7   <none>           <none>
+web-8458ff48d5-75ntm   1/1     Running   0          3s     100.112.2.10   vks-cl01-vks-cl01-np-1-n6ktt-dgsfm-rhd45   <none>           <none>
+web-8458ff48d5-g4qvt   1/1     Running   0          3s     100.112.2.11   vks-cl01-vks-cl01-np-1-n6ktt-dgsfm-rhd45   <none>           <none>
+web-8458ff48d5-h55vd   1/1     Running   0          112s   100.112.1.5    vks-cl01-vks-cl01-np-1-n6ktt-dgsfm-zlmj7   <none>           <none>
+
+$ kubectl -n web-demo rollout restart deploy/web
+deployment.apps/web restarted
+
+$ kubectl -n web-demo rollout status deploy/web --timeout=180s
+Waiting for deployment "web" rollout to finish: 3 out of 5 new replicas have been updated...
+Waiting for deployment "web" rollout to finish: 3 out of 5 new replicas have been updated...
+Waiting for deployment "web" rollout to finish: 3 out of 5 new replicas have been updated...
+Waiting for deployment "web" rollout to finish: 3 out of 5 new replicas have been updated...
+Waiting for deployment "web" rollout to finish: 3 out of 5 new replicas have been updated...
+Waiting for deployment "web" rollout to finish: 4 out of 5 new replicas have been updated...
+Waiting for deployment "web" rollout to finish: 4 out of 5 new replicas have been updated...
+Waiting for deployment "web" rollout to finish: 4 out of 5 new replicas have been updated...
+Waiting for deployment "web" rollout to finish: 4 out of 5 new replicas have been updated...
+Waiting for deployment "web" rollout to finish: 2 old replicas are pending termination...
+Waiting for deployment "web" rollout to finish: 2 old replicas are pending termination...
+Waiting for deployment "web" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "web" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "web" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "web" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "web" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "web" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "web" rollout to finish: 4 of 5 updated replicas are available...
+deployment "web" successfully rolled out
+
+$ kubectl -n web-demo rollout history deploy/web
+deployment.apps/web 
+REVISION  CHANGE-CAUSE
+1         <none>
+2         <none>
+
+
+$ curl -s http://192.168.34.0/
+<h1>web-demo v2</h1><p>edited once on the NFS PV</p>
+
+# --- VIP 拿到 192.168.34.0：NSX 從 block 裡「最小的可用單一 IP」配 VIP。把預留給下一個 SubnetSet 的 34.0/24 先排除，VIP 才會落到 40.0/22 ---
+$ kubectl -n web-demo delete svc web-lb
+service "web-lb" deleted
+
+$ PATCH /policy/api/v1/infra/ip-blocks/vks-ext-block  (cidrs + visibility + excluded_ips)
+HTTP 200
+[{"start":"192.168.32.33","end":"192.168.32.255"},{"start":"192.168.35.0","end":"192.168.39.255"},{"start":"192.168.44.0","end":"192.168.47.255"},{"start":"192.168.34.0","end":"192.168.34.255"}]
+
+$ kubectl apply -f E:/9.1/m02/manifests/web-demo.yaml
+namespace/web-demo unchanged
+persistentvolumeclaim/web-content unchanged
+job.batch/seed-content unchanged
+deployment.apps/web configured
+service/web-lb created
+
+$ kubectl -n web-demo get svc web-lb
+NAME     TYPE           CLUSTER-IP      EXTERNAL-IP    PORT(S)        AGE
+web-lb   LoadBalancer   100.85.74.196   192.168.40.0   80:31184/TCP   6s
+
+$ curl -s http://192.168.40.0/
+<h1>web-demo v2</h1><p>edited once on the NFS PV</p>
+

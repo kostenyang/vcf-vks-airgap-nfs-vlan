@@ -1,0 +1,2 @@
+{"accessMode":"Public","advancedConfig":{"connectivityState":"Disconnected","staticIPAllocation":{"enabled":true}},"ipAddresses":["192.168.17.0/24"],"subnetDHCPConfig":{"dhcpServerAdditionalConfig":{},"mode":"DHCPDeactivated"},"vlanConnectionName":"nas-vlan7","vpcName":":vks-lab_1na6e"}
+["192.168.17.0/24"]

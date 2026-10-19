@@ -1,0 +1,25 @@
+$ kubectl apply -f rbac-csi-nfs.yaml -f csi-nfs-driverinfo.yaml -f csi-nfs-controller.yaml -f csi-nfs-node.yaml
+serviceaccount/csi-nfs-controller-sa created
+serviceaccount/csi-nfs-node-sa created
+clusterrole.rbac.authorization.k8s.io/nfs-external-provisioner-role created
+clusterrolebinding.rbac.authorization.k8s.io/nfs-csi-provisioner-binding created
+clusterrole.rbac.authorization.k8s.io/nfs-external-resizer-role created
+clusterrolebinding.rbac.authorization.k8s.io/nfs-csi-resizer-role created
+csidriver.storage.k8s.io/nfs.csi.k8s.io created
+deployment.apps/csi-nfs-controller created
+daemonset.apps/csi-nfs-node created
+$ kubectl apply -f storageclass-nas-nfs-rwx.yaml
+storageclass.storage.k8s.io/nas-nfs-rwx created
+
+$ kubectl -n kube-system get pods -l "app in (csi-nfs-controller,csi-nfs-node)" -o wide
+NAME                                  READY   STATUS    RESTARTS   AGE   IP             NODE                                       NOMINATED NODE   READINESS GATES
+csi-nfs-controller-64c96c5ccf-jt95l   5/5     Running   0          46s   192.168.33.3   vks-cl01-vks-cl01-np-1-n6ktt-dgsfm-zlmj7   <none>           <none>
+csi-nfs-node-98gvj                    3/3     Running   0          46s   192.168.33.3   vks-cl01-vks-cl01-np-1-n6ktt-dgsfm-zlmj7   <none>           <none>
+csi-nfs-node-jzkvx                    3/3     Running   0          46s   192.168.33.4   vks-cl01-vks-cl01-np-1-n6ktt-dgsfm-rhd45   <none>           <none>
+csi-nfs-node-vh668                    3/3     Running   0          46s   192.168.33.2   vks-cl01-c6nmq-hvfwt                       <none>           <none>
+
+$ kubectl get sc
+NAME                   PROVISIONER              RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+nas-nfs-rwx            nfs.csi.k8s.io           Delete          Immediate              true                   47s
+vks-ftt0               csi.vsphere.vmware.com   Delete          Immediate              true                   5m52s
+vks-ftt0-latebinding   csi.vsphere.vmware.com   Delete          WaitForFirstConsumer   true                   5m52s

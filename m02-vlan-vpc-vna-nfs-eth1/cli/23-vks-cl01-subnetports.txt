@@ -1,0 +1,7 @@
+NAME                                                      VIFID                                  IPADDRESS          MACADDRESS
+vks-cl01-c6nmq-hvfwt-nas-vlan7-eth1                       30616461-6362-4437-ad64-3931302d3433   192.168.17.64/24   04:50:56:00:3c:00
+vks-cl01-c6nmq-hvfwt-nodes-eth0                           32326666-3030-4232-ad37-6565392d3462   192.168.33.2/24    04:50:56:00:7c:01
+vks-cl01-vks-cl01-np-1-n6ktt-dgsfm-rhd45-nas-vlan7-eth1   30633533-3138-4464-ad61-3030372d3465   192.168.17.66/24   04:50:56:00:dc:00
+vks-cl01-vks-cl01-np-1-n6ktt-dgsfm-rhd45-nodes-eth0       31383934-6131-4432-ad65-3639322d3431   192.168.33.4/24    04:50:56:00:64:00
+vks-cl01-vks-cl01-np-1-n6ktt-dgsfm-zlmj7-nas-vlan7-eth1   61636634-6536-4632-ad31-3735662d3435   192.168.17.65/24   04:50:56:00:e4:00
+vks-cl01-vks-cl01-np-1-n6ktt-dgsfm-zlmj7-nodes-eth0       61626339-3236-4239-ad34-6161652d3430   192.168.33.3/24    04:50:56:00:18:00
