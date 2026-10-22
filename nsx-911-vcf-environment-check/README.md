@@ -103,6 +103,7 @@ curl -sk -u "admin:$P" https://$NSX/api/v1/watermark     # 應回 404
 | 檔案 | 用途 |
 |---|---|
 | `scripts/watermark-curl.sh` | `get` / `post` / `precheck` / `status` / `failures` / `delete`（`NSX_PASS`、`NSX` 環境變數） |
+| `scripts/watermark-curl-v1.sh` | 同上的互動版：直接執行會詢問 NSX IP/FQDN、密碼（`post` 另問 `managed_by`、`version`），`post`/`delete` 要按 y 確認；設了 `NSX`、`NSX_PASS` 環境變數就不問 |
 | `scripts/Run-NsxPrecheck.ps1` | 走跟 UI 一樣的 UC 流程：上傳 .mub（URL）→ EULA → upgrade UC → pre-checks → 存 JSON；**到 pre-check 就停，不升 MP/host**（`$env:NSX_PASS`） |
 
 注意：
