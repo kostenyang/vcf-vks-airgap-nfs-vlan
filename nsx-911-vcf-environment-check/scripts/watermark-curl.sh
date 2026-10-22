@@ -25,7 +25,7 @@ case "${1:-get}" in
   status)
     curl -sk -u "$A" "https://$NSX/api/v1/upgrade/status-summary" | python -c 'import sys,json; d=json.load(sys.stdin); [print(c["component_type"], c["pre_upgrade_status"]["status"]) for c in d["component_status"]]' ;;
   failures)
-    curl -sk -u "$A" "https://$NSX/api/v1/upgrade/pre-upgrade-checks/failures" | python -c 'import sys,json; d=json.load(sys.stdin); print("count", d["result_count"]); [print(f"[{r[\"type\"]}] {r[\"message\"][\"error_code\"]} ack={r.get(\"needs_ack\")} {r[\"message\"][\"message\"][:140]}") for r in d["results"]]' ;;
+    curl -sk -u "$A" "https://$NSX/api/v1/upgrade/pre-upgrade-checks/failures" | python -c 'import sys,json; d=json.load(sys.stdin); print("count", d["result_count"]); [print("[%s] %s ack=%s %s" % (r["type"], r["message"]["error_code"], r.get("needs_ack"), r["message"]["message"][:140])) for r in d["results"]]' ;;
   delete)    # roll back: remove the watermark again (API spec: DELETE on /watermark itself)
     curl -sk -u "$A" -X DELETE "https://$NSX/api/v1/watermark" -w 'HTTP %{http_code}\n' ;;
 esac
