@@ -19,9 +19,17 @@
 
 | 視圖 | 內容 |
 |---|---|
-| 封包路徑 | 7 條路徑逐跳動畫，每一步顯示封包標頭（外 → 內），標出新增、變更、拿掉的欄位 |
+| 封包路徑 | 7 條路徑逐跳動畫，每一步顯示封包標頭（外 → 內），標出新增、變更、拿掉的欄位；下方附**這一跳的抓包指令**（含 DR / SR），可直接複製 |
 | IP 規劃 | External VLAN 8 的 192.168.32.0/20 照比例切法、VIP 配置規則（m02 實測三次）、叢集內部網段 |
 | VLAN vs overlay | 和 overlay VPC（FULL_STACK_VPC）的 11 項差異、VNA 容量 |
+| 抓包準備 | 在 lab 跑抓包要先做的事（變數、netshoot 進 Harbor、privileged namespace、demo、節點 debug shell、ESXi pktcap-uw、DR / SR 在哪、RouterOS），加上所有路徑的指令總表 |
+
+**抓包**
+
+- 每一跳都標出指令在哪裡跑：你的電腦（kubectl）、節點 debug shell、ESXi、DR（ESXi 上的 DTGW）、SR（VNA）、RouterOS、Harbor、NAS。
+- 練習用的 demo 在 [`lab/pw-demo.yaml`](lab/pw-demo.yaml)：圖上的 app-1 = `pw-app`，web-1 / web-2 = `pw-web` 的兩個 Pod，image 用 Harbor 裡已有的 nginx-unprivileged 與 busybox。
+- 變數預設是 m01 的值（Supervisor VIP 192.168.32.6、namespace `vks-lab`、叢集 `vks-cl01`）。
+- 🔴 這些指令照 m01 / m02 實測過的架構整理，**還沒在 lab 從頭到尾跑過**；VNA 的 CLI 預期和 NSX Edge 相同但未驗證。
 
 7 條路徑：
 
@@ -54,9 +62,17 @@ A single-file interactive diagram that walks, hop by hop, through how packets mo
 
 | View | What it shows |
 |---|---|
-| Packet walk | 7 paths animated hop by hop. Each step lists the packet headers (outer → inner) and marks new, changed and removed fields |
+| Packet walk | 7 paths animated hop by hop. Each step lists the packet headers (outer → inner) and marks new, changed and removed fields, followed by **capture commands for that hop** (DR and SR included) with copy buttons |
 | IP plan | The External VLAN 8 192.168.32.0/20 carved to scale, the VIP allocation rule (three attempts on m02), and the in-cluster ranges |
 | VLAN vs overlay | 11 differences from an overlay VPC (FULL_STACK_VPC), plus VNA capacity |
+| Capture setup | What to prepare before capturing in the lab (variables, netshoot in Harbor, a privileged namespace, the demo, node debug shells, ESXi pktcap-uw, where the DR and SR are, RouterOS), plus every command grouped by path |
+
+**Captures**
+
+- Each hop says where its commands run: your PC (kubectl), a node debug shell, ESXi, the DR (DTGW on ESXi), the SR (VNA), RouterOS, Harbor or the NAS.
+- The practice demo is [`lab/pw-demo.yaml`](lab/pw-demo.yaml): app-1 in the diagram = `pw-app`, web-1 / web-2 = the two `pw-web` pods, using the nginx-unprivileged and busybox images already in Harbor.
+- The variables default to the m01 values (Supervisor VIP 192.168.32.6, namespace `vks-lab`, cluster `vks-cl01`).
+- 🔴 The commands follow the architecture measured on m01 / m02 but **have not been run end to end in the lab yet**; the VNA CLI is expected to match the NSX Edge CLI but is untested.
 
 The 7 paths:
 
