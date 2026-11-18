@@ -13,6 +13,8 @@ vSphere / NSX / Installer 的設定全部在 UI 操作並截圖；只有中止 b
 
 > 🆕 **第二版（2026-10，lab m02）**：[`m02-vlan-vpc-vna-nfs-eth1/`](m02-vlan-vpc-vna-nfs-eth1/) —— External VLAN 用 /20 切法、主機無 TEP 時 Transit Gateway 精靈一路 DEPLOY、LoadBalancer VIP 的配置規則（最小可用 IP）、nested 環境 spherelet 被 vSAN NVMe HCL 擋的修法，以及「部署一個服務」的 kubectl 指令 demo。
 
+> 🧭 **互動封包路徑圖（中文 / English）**：[`packet-walk/`](packet-walk/) —— m02 架構下 7 條封包路徑逐跳動畫、External VLAN /20 的 IP 切法、VLAN-backed 與 overlay VPC 的差異。單一 HTML，離線直接開。
+
 | 重點 | 做法 | 章節 |
 |---|---|---|
 | 不部署 VCFMS | VCF Installer bring-up 跑完 NSX，在 VCF Management Platform 開始時中止 | Part A |

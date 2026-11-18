@@ -1,0 +1,909 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VKS VLAN-backed VPC 封包路徑</title>
+<meta name="description" content="VCF 9.1.1 VKS on a VLAN-backed VPC (TEP-less, DTGW + VNA): hop-by-hop packet walk, IP plan, VLAN-backed vs overlay. 中文 / English.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%2314202a'/%3E%3Crect x='2' y='10' width='12' height='2' rx='1' fill='%23eea23e'/%3E%3Ccircle cx='5' cy='6' r='2' fill='%2340c6cb'/%3E%3Ccircle cx='11' cy='6' r='2' fill='%2378a6ff'/%3E%3C/svg%3E">
+<style>
+/* Layout: 標題列(視圖分頁 + 語言 + 主題)+ 三個視圖。封包路徑 = 左側情境清單、右側拓撲圖、圖下方步驟與封包標頭。
+   單一檔案、不載入任何外部資源,離線 / air-gap 環境直接開。 */
+:root{
+  --bg:#f1f4f6; --panel:#ffffff; --sunken:#e7ecf0; --ink:#14202a; --ink2:#3b4a57; --mute:#66757f;
+  --line:#d2dae0; --line2:#b3bfc8; --on-bus:#ffffff;
+  --c-vlan:#ad6400; --c-vlan-s:#fbeedb;
+  --c-nfs:#3a7a29; --c-nfs-s:#e4f1dd;
+  --c-ant:#08797f; --c-ant-s:#d9efef;
+  --c-dtgw:#285fc2; --c-dtgw-s:#dfe8fa;
+  --c-vna:#9f267b; --c-vna-s:#f6e0ef;
+  --c-sv:#5845b3; --c-sv-s:#ebe7f9;
+  --c-mgmt:#5d6b77; --c-mgmt-s:#e5e9ec;
+  --f-sans:"Segoe UI","Microsoft JhengHei UI","Microsoft JhengHei","PingFang TC","Noto Sans TC","Helvetica Neue",Arial,sans-serif;
+  --f-mono:"Cascadia Mono","SFMono-Regular",Consolas,"Liberation Mono",Menlo,"Microsoft JhengHei",monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0d1317; --panel:#141c22; --sunken:#1a242b; --ink:#e2e8ec; --ink2:#b3c0c9; --mute:#8595a1;
+    --line:#26333c; --line2:#3a4954; --on-bus:#0f1418;
+    --c-vlan:#eea23e; --c-vlan-s:#382812;
+    --c-nfs:#88c870; --c-nfs-s:#1d3118;
+    --c-ant:#40c6cb; --c-ant-s:#0f2e2e;
+    --c-dtgw:#78a6ff; --c-dtgw-s:#16263f;
+    --c-vna:#ea7dc8; --c-vna-s:#38172f;
+    --c-sv:#a796ff; --c-sv-s:#231d43;
+    --c-mgmt:#9ca9b4; --c-mgmt-s:#212b32;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0d1317; --panel:#141c22; --sunken:#1a242b; --ink:#e2e8ec; --ink2:#b3c0c9; --mute:#8595a1;
+  --line:#26333c; --line2:#3a4954; --on-bus:#0f1418;
+  --c-vlan:#eea23e; --c-vlan-s:#382812;
+  --c-nfs:#88c870; --c-nfs-s:#1d3118;
+  --c-ant:#40c6cb; --c-ant-s:#0f2e2e;
+  --c-dtgw:#78a6ff; --c-dtgw-s:#16263f;
+  --c-vna:#ea7dc8; --c-vna-s:#38172f;
+  --c-sv:#a796ff; --c-sv-s:#231d43;
+  --c-mgmt:#9ca9b4; --c-mgmt-s:#212b32;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html[lang="en"] .zh,html:not([lang="en"]) .en{display:none!important}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-sans);font-size:15px;line-height:1.65;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1480px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+.mono{font-family:var(--f-mono)}
+a{color:var(--c-dtgw)}
+h1,h2,h3{text-wrap:balance;line-height:1.25}
+code{font-family:var(--f-mono);font-size:.92em}
+
+/* header */
+.top{display:flex;flex-wrap:wrap;gap:14px 28px;align-items:flex-end;justify-content:space-between;padding-bottom:16px;border-bottom:1px solid var(--line)}
+.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);margin:0 0 4px}
+h1{font-size:clamp(23px,2.6vw,31px);margin:0;font-weight:700;letter-spacing:-.005em}
+h1 .mono{font-weight:600;letter-spacing:-.02em}
+.meta{font-family:var(--f-mono);font-size:12.5px;color:var(--mute);margin:6px 0 0}
+.hctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tabs,.seg2{display:flex;gap:4px;background:var(--sunken);padding:4px;border-radius:9px;flex-wrap:wrap}
+.tabs a,.seg2 button{padding:6px 13px;border-radius:6px;color:var(--ink2);text-decoration:none;font-size:14px;font-weight:500;font-family:inherit;border:0;background:none;cursor:pointer;line-height:1.5}
+.tabs a:hover,.seg2 button:hover{color:var(--ink)}
+.tabs a[aria-current="page"],.seg2 button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.tabs a:focus-visible,.seg2 button:focus-visible,.btn:focus-visible,.flow:focus-visible,.stb:focus-visible{outline:2px solid var(--c-dtgw);outline-offset:2px}
+.btn{font:inherit;font-size:14px;padding:6px 12px;border-radius:7px;border:1px solid var(--line2);background:var(--panel);color:var(--ink);cursor:pointer;line-height:1.4}
+.btn:hover:not(:disabled){border-color:var(--ink2)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.pri{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.thesis{max-width:80ch;font-size:16px;color:var(--ink2);margin:18px 0 20px}
+.thesis b{color:var(--ink)}
+
+/* walk view */
+.walk{display:grid;grid-template-columns:236px minmax(0,1fr);gap:16px;align-items:start}
+.flows{display:flex;flex-direction:column;gap:6px;position:sticky;top:12px;grid-row:span 2}
+.flows-h{font-size:12px;letter-spacing:.06em;color:var(--mute);margin:0 0 2px 2px}
+.flow{appearance:none;font:inherit;text-align:left;width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);cursor:pointer;line-height:1.35}
+.flow:hover{border-color:var(--line2)}
+.flow .fn{display:block;font-weight:600;font-size:14px}
+.flow .fs{display:block;font-size:12px;color:var(--mute);margin-top:3px}
+.flow[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.flow[aria-pressed="true"] .fs{color:var(--bg);opacity:.72}
+.stage{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.diag-wrap{overflow-x:auto}
+#diag{display:block;width:100%;min-width:880px;height:auto}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;padding:10px 14px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink2)}
+.lg{display:inline-flex;align-items:center;gap:6px}
+.lg svg{flex:none}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;min-width:0}
+.pn-head{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.pn-flow{font-weight:600;font-size:14px;color:var(--ink2)}
+.ctl{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.cnt{font-family:var(--f-mono);font-size:13px;color:var(--mute);min-width:4.2em;text-align:center;font-variant-numeric:tabular-nums}
+.pn-body{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:22px;padding-top:14px}
+#stT{font-size:19px;margin:0 0 6px;font-weight:700}
+#stD{margin:0;color:var(--ink2);max-width:66ch}
+.stlist{list-style:none;margin:16px 0 0;padding:0;display:flex;flex-direction:column;gap:1px;counter-reset:s}
+.stlist li{counter-increment:s}
+.stb{appearance:none;font:inherit;text-align:left;display:flex;gap:10px;width:100%;padding:4px 8px;border:0;border-radius:6px;background:none;font-size:13.5px;color:var(--mute);cursor:pointer;line-height:1.45}
+.stb::before{content:counter(s);font-family:var(--f-mono);font-size:12px;min-width:1.4em;color:var(--mute);padding-top:1px}
+.stb.done{color:var(--ink2)}
+.stb.cur{background:var(--sunken);color:var(--ink);font-weight:600}
+.stb:hover{color:var(--ink)}
+.pkt-h{font-size:12px;letter-spacing:.06em;color:var(--mute);margin:0 0 8px}
+#pkt{display:flex;flex-direction:column;gap:4px}
+.prow{display:grid;grid-template-columns:80px minmax(0,1fr);gap:10px;align-items:baseline;padding:6px 10px;border-left:4px solid var(--kc);background:var(--kcs);border-radius:4px}
+.prow .lab{font-size:12px;color:var(--ink2)}
+.prow .val{font-family:var(--f-mono);font-size:13px;color:var(--ink);overflow-wrap:anywhere}
+.prow .val[data-badge]::after{content:attr(data-badge);font-family:var(--f-sans);font-size:11px;font-weight:600;margin-left:8px;padding:1px 7px;border-radius:9px;background:var(--kc);color:var(--panel);white-space:nowrap}
+.prow.gone{opacity:.55}
+.prow.gone .val{text-decoration:line-through}
+.gone-h{font-size:12px;color:var(--mute);margin:8px 0 2px}
+.kind-pod,.kind-gnv{--kc:var(--c-ant);--kcs:var(--c-ant-s)}
+.kind-ip{--kc:var(--c-dtgw);--kcs:var(--c-dtgw-s)}
+.kind-vlan{--kc:var(--c-vlan);--kcs:var(--c-vlan-s)}
+.kind-nfs{--kc:var(--c-nfs);--kcs:var(--c-nfs-s)}
+.kind-mgmt{--kc:var(--c-mgmt);--kcs:var(--c-mgmt-s)}
+.kind-vna{--kc:var(--c-vna);--kcs:var(--c-vna-s)}
+
+/* svg */
+#diag text{font-family:var(--f-sans)}
+#diag .tl{font-size:12.5px;font-weight:600;fill:var(--ink)}
+#diag .tl.mono{font-family:var(--f-mono);font-weight:500;font-size:12px}
+#diag .ts{font-size:10.5px;fill:var(--ink2)}
+#diag .tm{font-size:10.5px;font-family:var(--f-mono);fill:var(--ink2)}
+#diag .tn{font-size:10.5px;fill:var(--mute)}
+#diag .tn.mono{font-family:var(--f-mono)}
+#diag .th{font-size:13.5px;font-weight:700;fill:var(--ink)}
+#diag .thm{font-family:var(--f-mono);font-size:11px;font-weight:400;fill:var(--mute)}
+#diag .tbus{font-size:10.5px;font-weight:600;fill:var(--on-bus)}
+#diag .tg{font-size:10.5px;fill:var(--ink2)}
+#diag .tgb{font-weight:700;fill:var(--ink)}
+.hbx{fill:var(--bg);stroke:var(--line2);stroke-width:1}
+.nd{transition:opacity .25s}
+.nd .bx{stroke-width:1.2;fill:var(--panel);stroke:var(--line2)}
+.nd .ring{fill:none;stroke:var(--ink);stroke-width:1.6;opacity:0;transition:opacity .2s}
+.nd.on .ring{opacity:1}
+.nd.on .bx{stroke-width:2.2}
+.nd.dim{opacity:.28}
+.k-pod .bx,.k-ovs .bx{fill:var(--c-ant-s);stroke:var(--c-ant)}
+.k-nic8 .bx,.k-port8 .bx{fill:var(--c-vlan-s);stroke:var(--c-vlan)}
+.k-nic7 .bx,.k-port7 .bx,.k-nas .bx{fill:var(--c-nfs-s);stroke:var(--c-nfs)}
+.k-vds .bx,.k-up .bx{fill:var(--sunken);stroke:var(--line2)}
+.k-dtgw .bx{fill:var(--c-dtgw-s);stroke:var(--c-dtgw)}
+.k-vna .bx{fill:var(--c-vna-s);stroke:var(--c-vna)}
+.k-vnab .bx{stroke:var(--c-vna)}
+.k-sv .bx{fill:var(--c-sv-s);stroke:var(--c-sv)}
+.k-svb .bx{stroke:var(--c-sv)}
+.k-phy .bx{fill:var(--sunken);stroke:var(--ink2)}
+.k-mgmt .bx{fill:var(--sunken);stroke:var(--line2)}
+.k-portm .bx,.k-mgmtc .bx{fill:var(--c-mgmt-s);stroke:var(--c-mgmt)}
+.k-lanbar .bx{fill:var(--c-mgmt);stroke:none}
+.k-bus8 .bx{fill:var(--c-vlan);stroke:none}
+.k-bus7 .bx{fill:var(--c-nfs);stroke:none}
+.k-ghost .bx{fill:none;stroke:var(--line2);stroke-dasharray:5 4}
+.wire{fill:none;stroke-width:1.6}
+.w8{stroke:var(--c-vlan);opacity:.6}
+.w7{stroke:var(--c-nfs);opacity:.6}
+.wm{stroke:var(--c-mgmt);opacity:.7}
+.tr{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.tr.c-ant{stroke:var(--c-ant)} .tr.c-ip{stroke:var(--c-dtgw)} .tr.c-nfs{stroke:var(--c-nfs)} .tr.c-mgmt{stroke:var(--c-mgmt)} .tr.under{stroke:var(--c-vlan)}
+.tr.now{stroke-width:4}
+.tr.now.under{stroke-width:10;opacity:.5}
+.tr.past{stroke-width:2.5;opacity:.45}
+.tr.past.under{stroke-width:7;opacity:.22}
+.tr.next{stroke-width:2;opacity:.25;stroke-dasharray:3 6}
+.tr.next.under{display:none}
+.tok .tcore{stroke:var(--panel);stroke-width:2.5}
+.tok .tring{fill:none;stroke-width:3;opacity:0}
+.e-pod .tcore,.e-gnv .tcore,.e-gnv8 .tcore{fill:var(--c-ant)}
+.e-ip .tcore,.e-ip8 .tcore{fill:var(--c-dtgw)}
+.e-nfs .tcore,.e-nfs7 .tcore{fill:var(--c-nfs)}
+.e-mgmt .tcore{fill:var(--c-mgmt)}
+.e-gnv .tring{opacity:1;stroke:var(--c-ant)}
+.e-gnv8 .tring,.e-ip8 .tring{opacity:1;stroke:var(--c-vlan)}
+.e-nfs7 .tring{opacity:1;stroke:var(--c-nfs)}
+
+/* sections: ip + compare */
+.sec-head{margin:22px 0 14px}
+.sec-head h2{font-size:22px;margin:0 0 6px}
+.lead{margin:0;color:var(--ink2);max-width:80ch}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px}
+.ipmap{padding:18px 18px 10px}
+.ipgroups,.ipbar,.ipoct{display:grid;grid-template-columns:repeat(16,minmax(0,1fr));gap:3px}
+.ipgroups span{font-size:12px;font-weight:600;color:var(--ink2);border-bottom:2px solid var(--gc,var(--line2));padding-bottom:4px;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.seg{height:58px;border-radius:3px;position:relative}
+.r-sys{background:linear-gradient(90deg,var(--c-sv) 0 12.5%,transparent 12.5%),repeating-linear-gradient(135deg,var(--sunken) 0 5px,var(--line2) 5px 7px)}
+.r-node{background:var(--c-dtgw)}
+.r-resv{background:repeating-linear-gradient(135deg,var(--c-dtgw-s) 0 5px,var(--c-dtgw) 5px 7px)}
+.r-excl{background:repeating-linear-gradient(135deg,var(--sunken) 0 5px,var(--line2) 5px 7px)}
+.r-vip{background:var(--c-vna)}
+.r-out{background:var(--panel);border:1.5px dashed var(--line2)}
+.seg.gw::after{content:"";position:absolute;right:3px;top:6px;bottom:6px;width:3px;border-radius:2px;background:var(--ink)}
+.ipoct span{font-family:var(--f-mono);font-size:11.5px;color:var(--mute);text-align:center;padding-top:4px;font-variant-numeric:tabular-nums}
+.ipkey{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12.5px;color:var(--ink2);margin-top:12px}
+.ipkey i{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:-2px;margin-right:6px}
+.tblwrap{overflow-x:auto;margin-top:16px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+.tbl{width:100%;border-collapse:collapse;font-size:14px;min-width:640px}
+.tbl th,.tbl td{padding:9px 12px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+.tbl tr:last-child td{border-bottom:0}
+.tbl th{font-size:12.5px;font-weight:600;color:var(--mute);background:var(--sunken)}
+.tbl td.m{font-family:var(--f-mono);font-size:13px;white-space:nowrap}
+.tbl td:first-child{font-weight:600}
+.tag{display:inline-block;font-size:12px;font-weight:600;padding:1px 8px;border-radius:9px;background:var(--sunken);color:var(--ink2);white-space:nowrap}
+h3.sub{font-size:17px;margin:28px 0 10px}
+.viptl{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;counter-reset:v}
+.viptl li{counter-increment:v;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.viptl li::before{content:"第 " counter(v) " 次";display:block;font-size:12px;color:var(--mute);margin-bottom:4px}
+html[lang="en"] .viptl li::before{content:"Attempt " counter(v)}
+.viptl .what{font-weight:600}
+.viptl .res{font-family:var(--f-mono);font-size:13px;margin-top:6px;color:var(--ink2)}
+.viptl li.ok{border-color:var(--c-vna)}
+.viptl li.ok .res{color:var(--c-vna);font-weight:600}
+.rule{margin:12px 0 0;padding:12px 16px;border-radius:8px;background:var(--c-vna-s);color:var(--ink);max-width:90ch}
+.facts{margin:10px 0 0;padding-left:1.2em;max-width:90ch;color:var(--ink2)}
+.facts li{margin:4px 0}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.cards .card h4{margin:0 0 6px;font-size:15px}
+.cards .card p{margin:0;color:var(--ink2);font-size:14px}
+.cards .card .big{font-family:var(--f-mono);font-size:13px;color:var(--c-vna);font-weight:600;margin-bottom:6px}
+.cmp td.v1{background:color-mix(in srgb,var(--c-vlan-s) 60%,transparent)}
+footer.notes{margin-top:34px;padding-top:16px;border-top:1px solid var(--line);font-size:13px;color:var(--mute);max-width:100ch}
+footer.notes ul{margin:6px 0 0;padding-left:1.2em}
+footer.notes li{margin:3px 0}
+
+@media (max-width:980px){
+  .walk{grid-template-columns:minmax(0,1fr)}
+  .flows{position:static;flex-direction:row;overflow-x:auto;padding-bottom:4px;grid-row:auto}
+  .flows-h{display:none}
+  .flow{flex:0 0 auto;width:210px}
+}
+@media (max-width:760px){
+  .pn-body{grid-template-columns:minmax(0,1fr)}
+  .ipgroups span.n1{color:transparent}
+}
+@media (prefers-reduced-motion: reduce){
+  .nd,.nd .ring{transition:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <p class="eyebrow">VCF 9.1.1 · vSphere Kubernetes Service</p>
+      <h1><span class="zh">VKS 封包路徑</span><span class="en">VKS Packet Walk</span> · <span class="mono">VLAN-backed VPC</span></h1>
+      <p class="meta"><span class="zh">主機沒有 TEP(vtep NO_IP)· DTGW + VNA · External VLAN 8 / 192.168.32.0/20 · 數值取自 m02 lab(2026-10-18)</span><span class="en">Hosts without TEPs (vtep NO_IP) · DTGW + VNA · External VLAN 8 / 192.168.32.0/20 · values from the m02 lab (2026-10-18)</span></p>
+    </div>
+    <div class="hctl">
+      <nav class="tabs" aria-label="Views">
+        <a href="#walk"><span class="zh">封包路徑</span><span class="en">Packet walk</span></a>
+        <a href="#ip"><span class="zh">IP 規劃</span><span class="en">IP plan</span></a>
+        <a href="#compare">VLAN vs overlay</a>
+      </nav>
+      <div class="seg2" role="group" aria-label="Language / 語言">
+        <button type="button" data-lang="zh" aria-pressed="true">中文</button>
+        <button type="button" data-lang="en" aria-pressed="false">EN</button>
+      </div>
+      <button class="btn" type="button" id="theme"></button>
+    </div>
+  </header>
+
+  <main>
+    <section id="v-walk" class="view">
+      <p class="thesis zh">VLAN-backed VPC 拿掉了 NSX 的 Geneve。<b>VPC subnet 就是 VLAN 8 上的一段 IP</b>,路由在每台 ESX 的 DTGW 做完,<b>只有 LoadBalancer VIP 要經過 VNA</b>。圖上看到的 Geneve,是 Antrea 在節點之間自己包的。</p>
+      <p class="thesis en">A VLAN-backed VPC removes NSX Geneve. <b>A VPC subnet is just a range of IPs on VLAN 8</b>, routing finishes in the DTGW on every ESX host, and <b>only LoadBalancer VIPs pass through the VNA</b>. The Geneve you see in the diagram is Antrea's own tunnel between nodes.</p>
+      <div class="walk">
+        <nav class="flows" id="flows" aria-label="Paths"><p class="flows-h"><span class="zh">選一條路徑</span><span class="en">Pick a path</span></p></nav>
+        <div class="stage">
+          <div class="diag-wrap"><svg id="diag" viewBox="0 0 1200 812" role="img"></svg></div>
+          <div class="legend">
+            <span class="lg"><svg width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" fill="var(--c-ant)"/></svg><span class="zh">Pod 封包</span><span class="en">Pod packet</span></span>
+            <span class="lg"><svg width="22" height="22" aria-hidden="true"><circle cx="11" cy="11" r="8.5" fill="none" stroke="var(--c-ant)" stroke-width="2.5"/><circle cx="11" cy="11" r="5" fill="var(--c-ant)"/></svg><span class="zh">Antrea Geneve 包住 Pod 封包</span><span class="en">Antrea Geneve around a pod packet</span></span>
+            <span class="lg"><svg width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" fill="var(--c-dtgw)"/></svg><span class="zh">節點 / 主機上的一般 IP</span><span class="en">Plain IP on a node / host</span></span>
+            <span class="lg"><svg width="22" height="22" aria-hidden="true"><circle cx="11" cy="11" r="8.5" fill="none" stroke="var(--c-vlan)" stroke-width="2.5"/><circle cx="11" cy="11" r="5" fill="var(--c-dtgw)"/></svg><span class="zh">外圈橘色 = 帶 VLAN 8 標籤在實體線上</span><span class="en">Orange ring = VLAN 8 tag on the wire</span></span>
+            <span class="lg"><svg width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" fill="var(--c-nfs)"/></svg>NFS (VLAN 7)</span>
+            <span class="lg"><svg width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" fill="var(--c-mgmt)"/></svg><span class="zh">管理網段</span><span class="en">Management network</span></span>
+          </div>
+        </div>
+        <div class="panel" aria-live="polite">
+          <div class="pn-head">
+            <div class="pn-flow" id="pnFlow"></div>
+            <div class="ctl">
+              <button class="btn" id="prev" type="button"></button>
+              <span class="cnt" id="cnt"></span>
+              <button class="btn" id="next" type="button"></button>
+              <button class="btn pri" id="play" type="button" aria-pressed="false"></button>
+            </div>
+          </div>
+          <div class="pn-body">
+            <div>
+              <h3 id="stT"></h3>
+              <p id="stD"></p>
+              <ol class="stlist" id="stList"></ol>
+            </div>
+            <div>
+              <p class="pkt-h"><span class="zh">封包標頭(外 → 內)</span><span class="en">Packet headers (outer → inner)</span></p>
+              <div id="pkt"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="v-ip" class="view" hidden>
+      <div class="sec-head">
+        <h2><span class="zh">External VLAN 8 的 /20 怎麼切</span><span class="en">How the External VLAN 8 /20 is carved</span></h2>
+        <p class="lead zh">一格是一個 /24,照比例畫。VPC 的 External IP block 就是整段 192.168.32.0/20,用 <code>excluded_ips</code> 挖掉不給 NSX 配的部分。實體閘道 192.168.47.254 在最後一格。</p>
+        <p class="lead en">Each cell is one /24, drawn to scale. The VPC External IP block is the whole 192.168.32.0/20, and <code>excluded_ips</code> removes the parts NSX must not hand out. The physical gateway 192.168.47.254 sits in the last cell.</p>
+      </div>
+      <div class="card ipmap">
+        <div class="ipgroups" aria-hidden="true">
+          <span class="n1" style="grid-column:1;--gc:var(--c-sv)"><span class="zh">系統</span><span class="en">System</span></span>
+          <span class="n1" style="grid-column:2;--gc:var(--c-dtgw)"><span class="zh">節點</span><span class="en">Nodes</span></span>
+          <span class="n1" style="grid-column:3;--gc:var(--c-dtgw)"><span class="zh">預留</span><span class="en">Next ns</span></span>
+          <span style="grid-column:4 / span 5"><span class="zh">保留(排除)</span><span class="en">Reserved (excluded)</span></span>
+          <span style="grid-column:9 / span 4;--gc:var(--c-vna)">LoadBalancer VIP /22</span>
+          <span style="grid-column:13 / span 4"><span class="zh">不交給 NSX · 閘道 47.254</span><span class="en">Not for NSX · gw 47.254</span></span>
+        </div>
+        <div class="ipbar" id="ipbar"></div>
+        <div class="ipoct" id="ipoct" aria-hidden="true"></div>
+        <div class="ipkey">
+          <span><i style="background:var(--c-sv)"></i><span class="zh">Supervisor / 系統 VIP(實測只用到 32.0–32.31)</span><span class="en">Supervisor / system VIPs (the lab used only 32.0–32.31)</span></span>
+          <span><i style="background:var(--c-dtgw)"></i><span class="zh">namespace 的節點 SubnetSet</span><span class="en">Node SubnetSet of a namespace</span></span>
+          <span><i style="background:repeating-linear-gradient(135deg,var(--c-dtgw-s) 0 3px,var(--c-dtgw) 3px 5px)"></i><span class="zh">預留給下一個 namespace(先排除)</span><span class="en">Held for the next namespace (excluded for now)</span></span>
+          <span><i style="background:repeating-linear-gradient(135deg,var(--sunken) 0 3px,var(--line2) 3px 5px)"></i><span class="zh">排除</span><span class="en">Excluded</span></span>
+          <span><i style="background:var(--c-vna)"></i><span class="zh">VIP 區</span><span class="en">VIP range</span></span>
+          <span><i style="border:1.5px dashed var(--line2)"></i><span class="zh">不交給 NSX</span><span class="en">Not given to NSX</span></span>
+        </div>
+      </div>
+
+      <div class="tblwrap">
+        <table class="tbl">
+          <thead><tr><th><span class="zh">範圍</span><span class="en">Range</span></th><th><span class="zh">用途</span><span class="en">Use</span></th><th><span class="zh">說明</span><span class="en">Notes</span></th></tr></thead>
+          <tbody>
+            <tr><td class="m">192.168.32.0 – 32.31</td><td><span class="tag"><span class="zh">系統</span><span class="en">System</span></span></td><td><span class="zh">Supervisor API VIP 192.168.32.5、Supervisor 工作負載 NIC 等。m02 實測只用到這 32 個。</span><span class="en">Supervisor API VIP 192.168.32.5, the Supervisor workload NIC and so on. The m02 lab used only these 32 addresses.</span></td></tr>
+            <tr><td class="m">192.168.32.32 – 32.255</td><td><span class="tag"><span class="zh">建議排除</span><span class="en">Exclude</span></span></td><td><span class="zh">不排除的話,叢集 API VIP 和第一個 LoadBalancer Service 會先拿走這裡。</span><span class="en">If left open, the cluster API VIP and the first LoadBalancer Service take addresses from here first.</span></td></tr>
+            <tr><td class="m">192.168.33.0/24</td><td><span class="tag"><span class="zh">ns vks-lab 節點</span><span class="en">ns vks-lab nodes</span></span></td><td><span class="zh">SubnetSet <code>nodes</code>(Public、256 個 IP)。閘道 .1(DTGW)、control plane .2、worker .3 / .4。</span><span class="en">SubnetSet <code>nodes</code> (Public, 256 IPs). Gateway .1 (DTGW), control plane .2, workers .3 / .4.</span></td></tr>
+            <tr><td class="m">192.168.34.0/24</td><td><span class="tag"><span class="zh">下一個 namespace</span><span class="en">Next namespace</span></span></td><td><span class="zh">先排除,開新 namespace 前再解除,不然 VIP 會先掉進來。</span><span class="en">Exclude it now and release it right before you create the next namespace; otherwise VIPs land here.</span></td></tr>
+            <tr><td class="m">192.168.35.0 – 39.255</td><td><span class="tag"><span class="zh">保留</span><span class="en">Reserved</span></span></td><td><span class="zh">排除,留給之後的 namespace。</span><span class="en">Excluded, kept for future namespaces.</span></td></tr>
+            <tr><td class="m">192.168.40.0/22</td><td><span class="tag"><span class="zh">VIP 區</span><span class="en">VIP range</span></span></td><td><span class="zh">LoadBalancer Service 的 VIP。web-lb = 192.168.40.0。</span><span class="en">VIPs for LoadBalancer Services. web-lb = 192.168.40.0.</span></td></tr>
+            <tr><td class="m">192.168.44.0 – 47.255</td><td><span class="tag"><span class="zh">不交給 NSX</span><span class="en">Not for NSX</span></span></td><td><span class="zh">排除。實體閘道 192.168.47.254/20 在這段。</span><span class="en">Excluded. The physical gateway 192.168.47.254/20 is in this range.</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="sub"><span class="zh">VIP 是怎麼配出來的(m02 實測)</span><span class="en">How VIPs were allocated (measured on m02)</span></h3>
+      <ol class="viptl">
+        <li><div class="what"><span class="zh">只排除 32.35 以後</span><span class="en">Excluded only from 32.35 up</span></div><div><span class="zh">系統段還剩 32.32–32.34 可用。</span><span class="en">The system range still had 32.32–32.34 free.</span></div><div class="res"><span class="zh">叢集 API VIP</span><span class="en">cluster API VIP</span> → 32.32<br>web-lb → 32.33</div></li>
+        <li><div class="what"><span class="zh">改從 32.33 起排除</span><span class="en">Excluded from 32.33 up</span></div><div><span class="zh">第二個 /24 還沒被 SubnetSet 用到,也算可用。</span><span class="en">The second /24 was not used by any SubnetSet yet, so it counted as free.</span></div><div class="res">web-lb → 34.0</div></li>
+        <li class="ok"><div class="what"><span class="zh">再排除 34.0/24</span><span class="en">Also excluded 34.0/24</span></div><div><span class="zh">比 40.0 小的可用 IP 都排掉了。</span><span class="en">Every free address below 40.0 was now excluded.</span></div><div class="res">web-lb → 40.0 ✓ <span class="zh">進到 VIP 區</span><span class="en">inside the VIP range</span></div></li>
+      </ol>
+      <p class="rule zh"><b>規則:</b>VIP 一律拿 IP block 裡最小的可用單一 IP。NSX 沒有「VIP 專區」設定,只能把比 VIP 區小的可用 IP 先排除。開新 namespace 前,再把預留的 /24 解除排除。</p>
+      <p class="rule en"><b>Rule:</b> a VIP always takes the lowest free single IP in the IP block. NSX has no "VIP range" setting, so exclude every free address below the VIP range. Before you create a new namespace, release the /24 you held for it.</p>
+      <ul class="facts zh">
+        <li>SubnetSet(Public、256 個 IP)依建立順序拿下一個 /24,不能指定 CIDR。</li>
+        <li><code>excluded_ips</code> 建好後可以 PATCH,但要同時帶 <code>cidrs</code> 和 <code>visibility</code>。少了 visibility 會回 520051,訊息看起來像「不能改」。</li>
+        <li><code>visibility</code> 和 <code>subnet_exclusive</code> 建好後不能改。</li>
+        <li>External IP block 要跟 Distributed VLAN 的閘道網段一致,否則回 640022。</li>
+        <li>已經配出去的 VIP 不會因為改排除而變,刪掉 Service 重建才會換。</li>
+      </ul>
+      <ul class="facts en">
+        <li>A SubnetSet (Public, 256 IPs) takes the next /24 in creation order. You cannot pick the CIDR.</li>
+        <li><code>excluded_ips</code> can be PATCHed later, but the body must carry both <code>cidrs</code> and <code>visibility</code>. Without visibility NSX returns 520051, and the message reads like "cannot be changed".</li>
+        <li><code>visibility</code> and <code>subnet_exclusive</code> cannot change after creation.</li>
+        <li>The External IP block must match the gateway network of the Distributed VLAN connection; otherwise NSX returns 640022.</li>
+        <li>Changing exclusions does not move a VIP that is already allocated. Delete and recreate the Service to get a new one.</li>
+      </ul>
+
+      <h3 class="sub"><span class="zh">叢集內部網段</span><span class="en">In-cluster ranges</span></h3>
+      <div class="tblwrap">
+        <table class="tbl">
+          <thead><tr><th><span class="zh">網段</span><span class="en">Range</span></th><th><span class="zh">值</span><span class="en">Value</span></th><th><span class="zh">說明</span><span class="en">Notes</span></th></tr></thead>
+          <tbody>
+            <tr><td>Pod CIDR (vks-cl01)</td><td class="m">100.112.0.0/18</td><td><span class="zh">每個節點一個 /24,所以最多 64 個節點。第 65 台會 Ready 但拿不到 podCIDR(CIDRNotAvailable),Supervisor 不會報錯。</span><span class="en">One /24 per node, so 64 nodes at most. Node 65 turns Ready without a podCIDR (CIDRNotAvailable), and the Supervisor reports no error.</span></td></tr>
+            <tr><td>Service CIDR (vks-cl01)</td><td class="m">100.80.0.0/13</td><td><span class="zh">只在 Antrea / kube-proxy 內部用。例:web-lb 的 ClusterIP 100.85.74.196。</span><span class="en">Used only inside Antrea / kube-proxy. Example: the web-lb ClusterIP 100.85.74.196.</span></td></tr>
+            <tr><td>Supervisor Service CIDR</td><td class="m">172.29.0.0/16</td><td><span class="zh">Supervisor 精靈裡設定。</span><span class="en">Set in the Supervisor wizard.</span></td></tr>
+            <tr><td><span class="zh">NSX 內部保留</span><span class="en">NSX internal</span></td><td class="m">100.64.0.0/21<br>100.64.32.0/24</td><td><span class="zh">TGW transit 與 VPC 的 <code>_services</code> 子網(m06 實測看到)。Pod / Service 避開比較好排錯。</span><span class="en">TGW transit and the VPC <code>_services</code> subnet (seen on m06). Keeping pod and service ranges away from them makes troubleshooting easier.</span></td></tr>
+            <tr><td>NFS VLAN 7</td><td class="m">192.168.17.0/24</td><td><span class="zh">NSX block 排除 .1–.63,節點 eth1 的 static IP 從 .64 起;NAS 192.168.17.20。</span><span class="en">The NSX block excludes .1–.63, so node eth1 static IPs start at .64. NAS 192.168.17.20.</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="v-compare" class="view" hidden>
+      <div class="sec-head">
+        <h2><span class="zh">VLAN-backed 和 overlay VPC 差在哪</span><span class="en">VLAN-backed vs overlay VPC</span></h2>
+        <p class="lead zh">同一套 VKS,主機有沒有 TEP 會改變下面這些地方。兩種都在 lab 實測過(overlay:m06 2026-10-14;VLAN-backed:m02 2026-10-18)。</p>
+        <p class="lead en">Same VKS, but whether the hosts have TEPs changes everything below. Both were tested in the lab (overlay: m06, 2026-10-14; VLAN-backed: m02, 2026-10-18).</p>
+      </div>
+      <div class="tblwrap">
+        <table class="tbl cmp">
+          <thead><tr><th><span class="zh">項目</span><span class="en">Item</span></th><th><span class="zh">VLAN-backed VPC(本頁)</span><span class="en">VLAN-backed VPC (this page)</span></th><th>Overlay VPC (FULL_STACK_VPC)</th></tr></thead>
+          <tbody>
+            <tr><td><span class="zh">主機 TEP</span><span class="en">Host TEP</span></td><td class="v1"><span class="zh">沒有(vtep NO_IP)</span><span class="en">None (vtep NO_IP)</span></td><td><span class="zh">有,NSX Geneve UDP 6081</span><span class="en">Yes, NSX Geneve UDP 6081</span></td></tr>
+            <tr><td><span class="zh">VPC subnet 在線上</span><span class="en">VPC subnet on the wire</span></td><td class="v1"><span class="zh">External VLAN 上的 802.1Q frame</span><span class="en">802.1Q frames on the External VLAN</span></td><td><span class="zh">主機 TEP 之間的 NSX Geneve</span><span class="en">NSX Geneve between host TEPs</span></td></tr>
+            <tr><td>Underlay MTU</td><td class="v1"><span class="zh">1500 就夠</span><span class="en">1500 is enough</span></td><td><span class="zh">至少 1600,建議 1700 以上</span><span class="en">1600 minimum, 1700+ recommended</span></td></tr>
+            <tr><td><span class="zh">SubnetSet 存取模式</span><span class="en">SubnetSet access modes</span></td><td class="v1"><span class="zh">Public、L2Only(其他會被 webhook 擋)</span><span class="en">Public, L2Only (others are rejected by the webhook)</span></td><td>Private, Private-TGW, Public</td></tr>
+            <tr><td><span class="zh">VKS 節點網路</span><span class="en">VKS node network</span></td><td class="v1"><span class="zh">要自訂 primary network 指到 Public SubnetSet;預設的 Private 會失敗</span><span class="en">Override the primary network to a Public SubnetSet; the default Private fails</span></td><td><span class="zh">預設 Private(vm-default)就能用</span><span class="en">The default Private (vm-default) works</span></td></tr>
+            <tr><td><span class="zh">出口 NAT</span><span class="en">Egress NAT</span></td><td class="v1"><span class="zh">不需要,節點 IP 直接可路由</span><span class="en">Not needed; node IPs are routable</span></td><td><span class="zh">Auto SNAT 必須開</span><span class="en">Auto SNAT must be on</span></td></tr>
+            <tr><td><span class="zh">LB 打 NodePort 的來源</span><span class="en">LB source IP toward NodePorts</span></td><td class="v1"><span class="zh">VNA 在 VLAN 上的 IP</span><span class="en">The VNA's IP on the VLAN</span></td><td><span class="zh">VPC <code>_services</code> 子網(m06 實測 100.64.32.3)</span><span class="en">VPC <code>_services</code> subnet (100.64.32.3 on m06)</span></td></tr>
+            <tr><td><span class="zh">TGW 的 network span</span><span class="en">TGW network span</span></td><td class="v1"><span class="zh">SDDC Manager 建的 sddc span</span><span class="en">The sddc span created by SDDC Manager</span></td><td><span class="zh">default span(主機有 TEP 之後)</span><span class="en">The default span (after hosts get TEPs)</span></td></tr>
+            <tr><td>VNA HA</td><td class="v1"><span class="zh">走管理介面(<code>ha_over_management_interface=true</code>)</span><span class="en">Over the management interface (<code>ha_over_management_interface=true</code>)</span></td><td><span class="zh">不走管理介面,資料面掛在 overlay</span><span class="en">Not over management; the data plane sits on the overlay</span></td></tr>
+            <tr><td><span class="zh">Supervisor 精靈</span><span class="en">Supervisor wizard</span></td><td class="v1"><span class="zh">沒有網路堆疊選項,依 TGW 決定</span><span class="en">No network-stack choice; it follows the TGW</span></td><td><span class="zh">同左,多出 Private (TGW) IP Blocks 與 Private (VPC) CIDRs</span><span class="en">Same, plus Private (TGW) IP Blocks and Private (VPC) CIDRs</span></td></tr>
+            <tr><td>Private AI Services</td><td class="v1"><span class="zh">不支援(William Lam 文章)</span><span class="en">Not supported (William Lam's post)</span></td><td><span class="zh">不受這個限制</span><span class="en">Not affected by this limit</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="sub"><span class="zh">VNA 的容量</span><span class="en">VNA capacity</span></h3>
+      <div class="cards">
+        <div class="card">
+          <div class="big"><span class="zh">Small → Supervisor 卡 CONFIGURING</span><span class="en">Small → Supervisor stuck in CONFIGURING</span></div>
+          <h4><span class="zh">VNA 至少選 Medium</span><span class="en">Pick Medium or larger for the VNA</span></h4>
+          <p class="zh">Small 只放得下 1 個 LB。VKS 至少要 3 個(kube-system、supervisor-services、一個工作 namespace)。選 Small 時精靈照樣送出,Supervisor 一直停在 CONFIGURING,不會報錯(m01 實測 2026-11-14)。</p>
+          <p class="en">A Small VNA holds one load balancer. VKS needs at least three (kube-system, supervisor-services and one workload namespace). The wizard still accepts Small, and the Supervisor stays in CONFIGURING without an error (m01, 2026-11-14).</p>
+        </div>
+        <div class="card">
+          <div class="big">20 VS · 60 pool · 400 member</div>
+          <h4><span class="zh">每個 namespace 一個 SMALL LB</span><span class="en">One SMALL LB per namespace</span></h4>
+          <p class="zh">vCenter 自動建的 namespace VPC,LB 固定是 SMALL。要更大的 LB,得先建好 VPC 並指定 LB size,再讓 namespace 用那個 VPC。</p>
+          <p class="en">The VPC that vCenter creates for a namespace always gets a SMALL load balancer. For a bigger one, pre-create the VPC with an LB size and point the namespace at it.</p>
+        </div>
+        <div class="card">
+          <div class="big"><span class="zh">member = worker 數 × Service 數</span><span class="en">members = workers × Services</span></div>
+          <h4><span class="zh">每台 worker 都在 pool 裡</span><span class="en">Every worker is in every pool</span></h4>
+          <p class="zh">每個 LoadBalancer Service 都把全部 worker 的 NodePort 放進 pool,<code>externalTrafficPolicy=Local</code> 也一樣,只改健康檢查。worker 多的時候,member 上限會比 VS 上限先用完。</p>
+          <p class="en">Each LoadBalancer Service puts the NodePort of every worker into its pool, even with <code>externalTrafficPolicy=Local</code>, which only changes the health check. With many workers you hit the member limit before the VS limit.</p>
+        </div>
+      </div>
+    </section>
+
+    <footer class="notes">
+      <b><span class="zh">來源與註記</span><span class="en">Sources and notes</span></b>
+      <ul class="zh">
+        <li>數值來自 m02 lab(VCF 9.1.1,2026-10-17~18 建置)存下的 subnetport、節點路由表與 VIP 配置紀錄;VNA 容量來自 m01(2026-11-14)與 m06(2026-10-15)實測。</li>
+        <li>哪台 VM 放在哪台主機、Pod IP 與 podCIDR 的分配順序是示意。</li>
+        <li>Antrea 以預設 encap 模式(Geneve)描述。回程封包在 VLAN 8 上由誰回 ARP,lab 沒有抓包確認,圖上只畫到「送回 VM 所在主機」。</li>
+        <li>完整建置步驟:<a href="../m02-vlan-vpc-vna-nfs-eth1/">m02-vlan-vpc-vna-nfs-eth1/</a>。參考:<a href="https://williamlam.com/2026/09/vcf-9-1-1-simplified-vsphere-kubernetes-service-vks-using-vlan-backed-vpcs-without-nsx-tunnel-endpoints-teps.html" target="_blank" rel="noopener">William Lam:VCF 9.1.1 VKS using VLAN-backed VPCs without NSX TEPs</a>。逐跳動畫的點子來自 <a href="https://vconfig.pl/nsxpacketflow/" target="_blank" rel="noopener">vconfig.pl NSX Overlay Packet Walk</a>。</li>
+      </ul>
+      <ul class="en">
+        <li>Values come from records saved while building the m02 lab (VCF 9.1.1, 2026-10-17 to 18): subnetports, node route tables and VIP allocation. VNA capacity comes from tests on m01 (2026-11-14) and m06 (2026-10-15).</li>
+        <li>Which host runs which VM, the pod IPs and the order of podCIDR allocation are illustrative.</li>
+        <li>Antrea is shown in its default encap (Geneve) mode. Who answers ARP for return traffic on VLAN 8 was not captured in the lab, so the diagram stops at "back to the host where the VM runs".</li>
+        <li>Full build steps (Chinese): <a href="../m02-vlan-vpc-vna-nfs-eth1/">m02-vlan-vpc-vna-nfs-eth1/</a>. Reference: <a href="https://williamlam.com/2026/09/vcf-9-1-1-simplified-vsphere-kubernetes-service-vks-using-vlan-backed-vpcs-without-nsx-tunnel-endpoints-teps.html" target="_blank" rel="noopener">William Lam: VCF 9.1.1 VKS using VLAN-backed VPCs without NSX TEPs</a>. The hop-by-hop idea comes from <a href="https://vconfig.pl/nsxpacketflow/" target="_blank" rel="noopener">vconfig.pl NSX Overlay Packet Walk</a>.</li>
+      </ul>
+    </footer>
+  </main>
+</div>
+
+<script>
+(function(){
+'use strict';
+var NS='http://www.w3.org/2000/svg';
+var svg=document.getElementById('diag');
+function $(s){return document.querySelector(s);}
+function E(tag,attrs,parent,text){var e=document.createElementNS(NS,tag);if(attrs){for(var k in attrs){if(attrs[k]!=null)e.setAttribute(k,attrs[k]);}}if(text!=null)e.textContent=text;if(parent)parent.appendChild(e);return e;}
+function store(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v);}catch(e){return null;}}
+
+/* ---------- language ---------- */
+var LANG='zh';
+function tr(x){return Array.isArray(x)?x[LANG==='en'?1:0]:x;}
+var UI={
+  zh:{prev:'‹ 上一步',next:'下一步 ›',play:'▶ 自動播放',pause:'❚❚ 暫停',newB:'新增',chg:'變更',gone:'這一步拿掉的',title:'VKS VLAN-backed VPC 封包路徑',
+      theme:{auto:'主題:自動',dark:'主題:深色',light:'主題:淺色'},
+      diag:'三台 ESX 主機、VKS 節點、VNA、Supervisor、VLAN 8 與 VLAN 7 實體網路、路由器與 NAS 的拓撲圖'},
+  en:{prev:'‹ Prev',next:'Next ›',play:'▶ Autoplay',pause:'❚❚ Pause',newB:'new',chg:'changed',gone:'Removed in this step',title:'VKS VLAN-backed VPC Packet Walk',
+      theme:{auto:'Theme: auto',dark:'Theme: dark',light:'Theme: light'},
+      diag:'Topology with three ESX hosts, VKS nodes, the VNA, the Supervisor, the VLAN 8 and VLAN 7 physical networks, the router and the NAS'}
+};
+function ui(k){return UI[LANG][k];}
+
+/* ---------- diagram ---------- */
+var R,PT,PARENT,ANC,LW,LN,LT,LK,tok;
+function txt(p,x,y,cls,s,opt){opt=opt||{};return E('text',{x:x,y:y,'class':cls,'text-anchor':opt.anchor||'start','data-max':opt.max||null},p,tr(s));}
+function box(id,x,y,w,h,k,label,sub,opt){
+  opt=opt||{};
+  var g=E('g',{'class':'nd k-'+k+(opt.cont?' cont':''),'data-id':id},LN);
+  E('rect',{x:x-3.5,y:y-3.5,width:w+7,height:h+7,rx:6,'class':'ring'},g);
+  E('rect',{x:x,y:y,width:w,height:h,rx:opt.rx!=null?opt.rx:4,'class':'bx'},g);
+  var pad=10, lcls='tl'+(opt.lmono?' mono':''), scls=opt.mono?'tm':'ts';
+  if(opt.cont){
+    if(label!=null)txt(g,x+pad,y+18,lcls,label,{max:w-2*pad});
+    if(sub!=null)txt(g,x+pad,y+33,scls,sub,{max:w-2*pad});
+  } else if(label!=null){
+    var cx=opt.center?x+w/2:x+pad, an=opt.center?'middle':'start';
+    if(sub!=null){txt(g,cx,y+h/2-3,lcls,label,{anchor:an,max:w-2*pad});txt(g,cx,y+h/2+11,scls,sub,{anchor:an,max:w-2*pad});}
+    else txt(g,cx,y+h/2+4.5,lcls,label,{anchor:an,max:w-2*pad});
+  }
+  R[id]={x:x,y:y,w:w,h:h,g:g};
+  if(opt.p)PARENT[id]=opt.p;
+  if(opt.anc)ANC[id]=opt.anc;
+  return g;
+}
+function wire(pts,cls){E('polyline',{points:pts.map(function(p){return p[0]+','+p[1];}).join(' '),'class':'wire '+cls},LW);}
+var HX=[16,412,808];
+
+function build(){
+  while(svg.firstChild)svg.removeChild(svg.firstChild);
+  R={};PT={};PARENT={};ANC={};
+  svg.setAttribute('aria-label',ui('diag'));
+  LW=E('g',{'class':'l-wire'},svg);LN=E('g',{'class':'l-node'},svg);LT=E('g',{'class':'l-trail'},svg);LK=E('g',{'class':'l-tok'},svg);
+
+  [['h1','esx01','vcf-m02-esx01 · 10.0.1.14'],['h2','esx02','vcf-m02-esx02 · 10.0.1.15'],['h3','esx03','vcf-m02-esx03 · 10.0.1.16']].forEach(function(h,i){
+    var x=HX[i], id=h[0];
+    var g=E('g',{'class':'host'},LN);
+    E('rect',{x:x,y:16,width:376,height:470,rx:8,'class':'hbx'},g);
+    var t=E('text',{x:x+12,y:38,'class':'th'},g);E('tspan',null,t,h[1]);E('tspan',{'class':'thm',dx:8},t,h[2]);
+    box(id+'_vds',x+10,312,356,46,'vds','VDS · DFW','VLAN 8 = VPC subnet nodes · VLAN 7 = nas-vlan7');
+    box(id+'_dtgw',x+10,368,356,46,'dtgw',['DTGW · subnet 閘道 192.168.33.1','DTGW · subnet gateway 192.168.33.1'],'VPC → TGW → 0.0.0.0/0 via 192.168.47.254');
+    box(id+'_up',x+10,424,356,46,'up','vmnic0 / vmnic1 · trunk VLAN 7, 8',['沒有 TEP(vtep NO_IP)· MTU 1500 就夠','No TEP (vtep NO_IP) · MTU 1500 is enough']);
+    PT['d8_'+id]={x:x+56,y:518}; PT['d7_'+id]={x:x+136,y:554};
+    wire([[x+56,248],[x+56,312]],'w8'); wire([[x+136,248],[x+136,312]],'w7');
+    wire([[x+56,470],[x+56,510]],'w8'); wire([[x+136,470],[x+136,546]],'w7');
+  });
+  function nodeVM(hi,id,name,eth0,eth1,s0,s1,pods,podcidr){
+    var x=HX[hi]+10, y=50;
+    box(id,x,y,172,248,'vm',name,'eth0 '+eth0,{cont:true,mono:true});
+    pods.forEach(function(p,i){box(id+'_'+p[0],x+8+i*80,y+44,76,44,'pod',p[1],p[2],{p:id,mono:true});});
+    box(id+'_ovs',x+8,y+100,156,46,'ovs','OVS br-int · Antrea','Geneve tunnel genev0',{p:id,mono:true});
+    box(id+'_eth0',x+8,y+158,76,40,'nic8','eth0',s0,{p:id,mono:true});
+    box(id+'_eth1',x+88,y+158,76,40,'nic7','eth1',s1,{p:id,mono:true});
+    txt(R[id].g,x+10,y+218,'tn mono','eth1 '+eth1,{max:152});
+    txt(R[id].g,x+10,y+234,'tn mono','podCIDR '+podcidr,{max:152});
+  }
+  nodeVM(0,'cp','control plane','192.168.33.2','192.168.17.64','.33.2','.17.64',[['api','apiserver',':6443'],['etcd','etcd',':2379']],'100.112.0.0/24');
+  nodeVM(1,'wa','worker-a','192.168.33.3','192.168.17.65','.33.3','.17.65',[['app1','app-1','.1.10'],['web1','web-1','.1.11']],'100.112.1.0/24');
+  nodeVM(2,'wb','worker-b','192.168.33.4','192.168.17.66','.33.4','.17.66',[['web2','web-2','.2.12'],['web3','web-3','.2.13']],'100.112.2.0/24');
+
+  var x=HX[0]+194,y=50;
+  box('vna',x,y,172,248,'vnab','VNA · vks-vna','vcf-m02-vna01a · Large',{cont:true});
+  box('vna_vip_web',x+8,y+42,156,34,'vna','192.168.40.0:80','VIP · web-lb',{p:'vna',lmono:true});
+  box('vna_vip_k8s',x+8,y+78,156,34,'vna','192.168.32.32:6443','VIP · vks-cl01 API',{p:'vna',lmono:true});
+  box('vna_vip_sv',x+8,y+114,156,34,'vna','192.168.32.5:6443','VIP · Supervisor API',{p:'vna',lmono:true});
+  box('vna_nic',x+8,y+158,156,40,'nic8',['VLAN 8 介面','VLAN 8 interface'],['LB 的 SNAT 來源','LB SNAT source'],{p:'vna'});
+  txt(R.vna.g,x+10,y+218,'tn mono','mgmt 10.0.1.28',{max:152});
+  txt(R.vna.g,x+10,y+234,'tn',['HA 走管理介面','HA over the mgmt interface'],{max:152});
+  wire([[x+86,248],[x+86,312]],'w8');
+  x=HX[1]+194;
+  box('sv',x,y,172,248,'svb','Supervisor CP VM','vcf-m02-sv01',{cont:true,mono:true});
+  box('sv_api',x+8,y+42,156,34,'sv','kube-apiserver','API VIP 192.168.32.5',{p:'sv'});
+  box('sv_ctl',x+8,y+78,156,34,'sv','NSX / VM Operator',['建 VIP、建節點 VM','creates VIPs, node VMs'],{p:'sv'});
+  box('sv_capi',x+8,y+114,156,34,'sv','Cluster API · VKS',['管理 vks-cl01','manages vks-cl01'],{p:'sv'});
+  box('sv_nic',x+8,y+158,156,40,'nic8',['工作負載 NIC','Workload NIC'],['系統段 192.168.32.0/27','system 192.168.32.0/27'],{p:'sv'});
+  txt(R.sv.g,x+10,y+218,'tn mono','mgmt 10.0.1.222–226',{max:152});
+  wire([[x+86,248],[x+86,312]],'w8');
+  x=HX[2]+194;
+  var g=box('vna2',x,y,172,248,'ghost',null,null);
+  txt(g,x+86,y+104,'tl','VNA #2',{anchor:'middle'});
+  txt(g,x+86,y+124,'ts',['正式環境建議 2 節點','2 nodes in production'],{anchor:'middle',max:150});
+  txt(g,x+86,y+140,'ts','active / standby',{anchor:'middle'});
+  txt(g,x+86,y+162,'tn',['(lab 只有 1 台)','(the lab has 1)'],{anchor:'middle'});
+
+  box('bus8',16,510,1168,16,'bus8',null,null,{rx:8,anc:'c'});
+  txt(R.bus8.g,1172,521.5,'tbus',['VLAN 8 · External 192.168.32.0/20 · 實體交換器 trunk,一般 802.1Q,沒有 NSX Geneve','VLAN 8 · External 192.168.32.0/20 · physical switch trunk, plain 802.1Q, no NSX Geneve'],{anchor:'end'});
+  box('bus7',16,546,1168,16,'bus7',null,null,{rx:8,anc:'c'});
+  txt(R.bus7.g,1172,557.5,'tbus','VLAN 7 · NFS 192.168.17.0/24 · Dedicated to Subnet (L2)',{anchor:'end'});
+
+  box('mgmt',16,590,380,210,'mgmt',['管理網段 10.0.0.0/23','Management 10.0.0.0/23'],null,{cont:true});
+  box('client',32,626,200,50,'mgmtc',['用戶端','Client'],'kubectl / curl · 10.0.0.x',{p:'mgmt',anc:'r'});
+  box('harbor',32,712,200,50,'mgmtc','harbor01','10.0.0.86 · image registry',{p:'mgmt',anc:'r'});
+  box('lan',296,626,12,136,'lanbar',null,null,{p:'mgmt',rx:6,anc:'c'});
+  wire([[232,651],[296,651]],'wm'); wire([[232,737],[296,737]],'wm'); wire([[308,725],[576,725]],'wm');
+  box('router',560,590,380,176,'phy',['實體 L3 閘道','Physical L3 gateway'],'lab: RouterOS',{cont:true});
+  txt(R.router.g,576,650,'tn',['/20 整段視為直連','Whole /20 is directly connected'],{max:170});
+  txt(R.router.g,576,667,'tn',['不跑 BGP、沒有 Edge','No BGP, no Edge'],{max:170});
+  box('rm',576,700,104,50,'portm',['管理網段','Management'],'10.0.0.0/23',{p:'router',mono:true,anc:'l'});
+  box('r8',692,700,116,50,'port8','VLAN 8 SVI','192.168.47.254',{p:'router',mono:true,anc:'t'});
+  box('r7',820,700,116,50,'port7','VLAN 7 SVI','192.168.17.254',{p:'router',mono:true,anc:'t'});
+  wire([[750,700],[750,526]],'w8'); wire([[878,700],[878,562]],'w7');
+  PT.rlane={x:0,y:688};
+  box('nas',960,596,224,56,'nas','NAS · nfs-vks01','192.168.17.20 · /export/vks-rwx',{mono:true,anc:'t'});
+  wire([[1072,596],[1072,562]],'w7');
+  var gl=E('g',{'class':'gloss'},LN);
+  [['DTGW',['= 分散式 Transit Gateway','= Distributed Transit Gateway']],['',['每台 ESX 的 kernel 都有一份','one copy in every ESX kernel']],['VNA','= Virtual Network Appliance'],['',['提供 LB,本圖的 VIP 都在它上面','provides LB; every VIP here lives on it']],['TEP-less',['= 主機不做 NSX Geneve 封裝','= hosts do no NSX Geneve']]].forEach(function(l,i){
+    var t=E('text',{x:960,y:690+i*18,'class':'tg','data-max':224},gl);
+    if(l[0])E('tspan',{'class':'tgb'},t,l[0]+' ');else E('tspan',null,t,'　　 ');
+    E('tspan',null,t,tr(l[1]));
+  });
+
+  tok=E('g',{'class':'tok'},LK);
+  E('circle',{r:13,'class':'tring'},tok);
+  E('circle',{r:7.5,'class':'tcore'},tok);
+}
+
+/* ---------- flows ---------- */
+function row(k,l,v,c){return [k,l,v,c];}
+var V8=row('vlan','802.1Q','VLAN 8','vlan'), V7=row('vlan','802.1Q','VLAN 7','nfs');
+var f1=[row('ip','Pod IP','100.112.1.10 → 100.112.1.11','pod'),row('l4','TCP','dport 80','pod')];
+var f2ip=row('ip','Pod IP','100.112.1.10 → 100.112.2.12','pod'), f2l4=row('l4','TCP','dport 80','pod'),
+    f2m=row('mac',['外層 MAC','Outer MAC'],'04:50:56:00:18:00 → 04:50:56:00:64:00','gnv'),
+    f2o=row('oip',['外層 IP','Outer IP'],'192.168.33.3 → 192.168.33.4','gnv'),
+    f2u=row('udp',['外層 UDP','Outer UDP'],'dport 6081 · Geneve (Antrea)','gnv');
+var f3ip=row('ip','IP','192.168.33.3 → 10.0.0.86','ip'), f3l4=row('l4','TCP','dport 443','ip'), f3m=row('mac','MAC','DTGW → 192.168.47.254','ip');
+var f4a=row('ip','IP','10.0.0.x → 192.168.40.0','mgmt'), f4b=row('l4','TCP','dport 80','mgmt'),
+    f4ip=row('ip','IP','VNA IP → 192.168.33.4','ip'), f4l4=row('l4','TCP','dport 31184 (NodePort)','ip'),
+    f4pip=row('ip','IP','VNA IP → 100.112.2.12','pod'), f4pl4=row('l4','TCP','dport 80','pod');
+var f5a=row('ip','IP','10.0.0.x → 192.168.32.32','mgmt'), f5b=row('l4','TCP','dport 6443','mgmt'), f5ip=row('ip','IP','VNA IP → 192.168.33.2','ip'), f5l4=row('l4','TCP','dport 6443','ip');
+var f6a=row('ip','IP','192.168.33.2 → 192.168.32.5','ip'), f6b=row('l4','TCP','dport 6443','ip'), f6ip=row('ip','IP',['VNA IP → Supervisor 工作負載 IP','VNA IP → Supervisor workload IP'],'ip');
+var f7ip=row('ip','IP','192.168.17.66 → 192.168.17.20','nfs'), f7l4=row('l4','TCP','dport 2049 (NFS)','nfs');
+
+var FLOWS=[
+ {n:['Pod → Pod(同節點)','Pod → Pod (same node)'],s:['只在節點 VM 的 OVS 裡轉','Switched inside the node VM\'s OVS only'],steps:[
+  {path:['wa_app1'],hl:['wa_app1'],enc:'pod',t:['app-1 送出封包','app-1 sends a packet'],d:['app-1(100.112.1.10)連 web-1(100.112.1.11):80。兩個 Pod 都在 worker-a,同一段 podCIDR 100.112.1.0/24。','app-1 (100.112.1.10) connects to web-1 (100.112.1.11):80. Both pods run on worker-a, in the same podCIDR 100.112.1.0/24.'],pkt:f1},
+  {path:['|wa_ovs'],hl:['wa_ovs'],enc:'pod',t:['進到 OVS br-int','Into OVS br-int'],d:['封包從 Pod 的 veth 進到節點裡的 OVS br-int。Antrea 查到目的 Pod 在本機;如果有 NetworkPolicy,也是在這裡檢查。','The packet leaves the pod veth and enters OVS br-int inside the node. Antrea sees that the destination pod is local. NetworkPolicy, if any, is enforced here.'],pkt:f1},
+  {path:['-wa_web1','wa_web1'],hl:['wa_web1'],enc:'pod',t:['直接交給 web-1','Delivered to web-1'],d:['OVS 把封包轉到 web-1 的 veth。整趟都在 worker-a 這台 VM 裡,ESX 的 VDS、DTGW 和實體網路都看不到。','OVS forwards the packet to the web-1 veth. The whole trip stays inside the worker-a VM; the ESX VDS, the DTGW and the physical network never see it.'],pkt:f1}
+ ]},
+ {n:['Pod → Pod(跨節點)','Pod → Pod (across nodes)'],s:['Antrea 自己的 Geneve,跑在 VLAN 8 上','Antrea\'s own Geneve, carried on VLAN 8'],steps:[
+  {path:['wa_app1'],hl:['wa_app1'],enc:'pod',t:['app-1 連 web-2','app-1 connects to web-2'],d:['目的 web-2(100.112.2.12)在另一個節點 worker-b。','The destination web-2 (100.112.2.12) runs on another node, worker-b.'],pkt:[f2ip,f2l4]},
+  {path:['|wa_ovs'],hl:['wa_ovs'],enc:'pod',t:['OVS 查到要送去 worker-b','OVS picks worker-b'],d:['Antrea 知道 100.112.2.0/24 屬於 worker-b(192.168.33.4),把封包交給 tunnel 埠 genev0。','Antrea knows 100.112.2.0/24 belongs to worker-b (192.168.33.4) and hands the packet to the tunnel port genev0.'],pkt:[f2ip,f2l4]},
+  {path:['|wa_eth0'],hl:['wa_eth0'],enc:'gnv',t:['Antrea 封裝 Geneve','Antrea adds Geneve'],d:['整個 Pod frame 被包進 Geneve:外層是兩個節點的 eth0(33.3 → 33.4),UDP 6081。這是 Antrea 的 tunnel,跟 NSX TEP 無關。Antrea 會把 Pod 的 MTU 自動扣掉約 50 B 的封裝開銷。','The whole pod frame is wrapped in Geneve. The outer header uses the eth0 addresses of the two nodes (33.3 → 33.4), UDP 6081. This is Antrea\'s tunnel and has nothing to do with NSX TEPs. Antrea lowers the pod MTU by about 50 bytes to make room for it.'],pkt:[f2m,f2o,f2u,f2ip,f2l4]},
+  {path:['|h2_vds'],hl:['h2_vds'],enc:'gnv',t:['ESX 只看到 VM 對 VM 的 UDP','ESX sees VM-to-VM UDP'],d:['對 esx02 來說,這只是 VPC subnet nodes 裡兩台 VM 之間的 UDP。同一個 subnet 不需要路由,VDS 直接交換,DFW 檢查 eth0。','To esx02 this is just UDP between two VMs in the VPC subnet nodes. Same subnet means no routing: the VDS switches it and DFW checks eth0.'],pkt:[f2m,f2o,f2u,f2ip,f2l4]},
+  {path:['|h2_up','|bus8','-wb_eth0','|h3_up'],hl:['h2_up','bus8','h3_up'],enc:'gnv8',t:['帶 VLAN 8 跨過實體網路','Across the physical network on VLAN 8'],d:['主機沒有 TEP,NSX 不會再包一層。frame 帶 802.1Q VLAN 8 離開 esx02,經實體交換器到 esx03。underlay 看得到 VM 的 MAC 和 33.x 的 IP。','The hosts have no TEP, so NSX adds no extra layer. The frame leaves esx02 with an 802.1Q VLAN 8 tag and reaches esx03 through the physical switches. The underlay sees VM MACs and 33.x addresses.'],pkt:[V8,f2m,f2o,f2u,f2ip,f2l4]},
+  {path:['|h3_vds','|wb_eth0'],hl:['h3_vds','wb_eth0'],enc:'gnv',t:['esx03 交給 worker-b','esx03 delivers to worker-b'],d:['esx03 的 VDS 依目的 MAC 交給 worker-b 的 eth0,DFW 再檢查一次。','The esx03 VDS delivers by destination MAC to worker-b eth0, and DFW checks it again.'],pkt:[f2m,f2o,f2u,f2ip,f2l4]},
+  {path:['|wb_ovs','|wb_web2'],hl:['wb_ovs','wb_web2'],enc:'pod',t:['解封裝,交給 web-2','Decapsulated, delivered to web-2'],d:['worker-b 的 Antrea 拆掉 Geneve,OVS 把原本的 Pod 封包交給 web-2。','Antrea on worker-b strips the Geneve header, and OVS delivers the original pod packet to web-2.'],pkt:[f2ip,f2l4]}
+ ]},
+ {n:['Pod → 叢集外(Harbor)','Pod → outside (Harbor)'],s:['Antrea SNAT,DTGW 在本機直接送出 VLAN 8','Antrea SNAT, then the local DTGW sends it out on VLAN 8'],steps:[
+  {path:['wa_app1'],hl:['wa_app1'],enc:'pod',t:['app-1 連 Harbor','app-1 connects to Harbor'],d:['app-1 連 harbor01(10.0.0.86:443)。目的地在叢集外面。','app-1 connects to harbor01 (10.0.0.86:443), which is outside the cluster.'],pkt:[row('ip','IP','100.112.1.10 → 10.0.0.86','pod'),row('l4','TCP','dport 443','pod')]},
+  {path:['|wa_ovs'],hl:['wa_ovs'],enc:'ip',t:['Antrea 做 SNAT','Antrea applies SNAT'],d:['離開 Pod 網段的流量,Antrea 會把來源改成節點 IP 192.168.33.3。叢集外的設備不需要認得 Pod 網段。','For traffic leaving the pod network, Antrea rewrites the source to the node IP 192.168.33.3. Devices outside the cluster never need to know the pod CIDR.'],pkt:[f3ip,f3l4,row('nat','Antrea',['SNAT:Pod IP → 節點 IP','SNAT: pod IP → node IP'],'pod')]},
+  {path:['|wa_eth0'],hl:['wa_eth0'],enc:'ip',t:['節點查路由表','Node route lookup'],d:['lab 實測:10.0.0.86 via 192.168.33.1 dev eth0。33.1 是 VPC subnet 的閘道,目的 MAC 填閘道的 MAC。','Measured in the lab: 10.0.0.86 via 192.168.33.1 dev eth0. 33.1 is the gateway of the VPC subnet, so the destination MAC is the gateway MAC.'],pkt:[row('mac','MAC',['worker-a → 閘道 33.1','worker-a → gateway 33.1'],'ip'),f3ip,row('ttl','TTL','64','ip'),f3l4]},
+  {path:['|h2_vds','|h2_dtgw'],hl:['h2_vds','h2_dtgw'],enc:'ip',t:['DTGW 在本機路由','DTGW routes on the local host'],d:['33.1 不在實體路由器或 Edge 上,是 esx02 kernel 裡的 DTGW。路由在 VM 所在的主機就做完:VPC → TGW → 預設路由 192.168.47.254,TTL 減 1。','33.1 is not on a physical router or an Edge. It is the DTGW in the esx02 kernel. Routing finishes on the host where the VM runs: VPC → TGW → default route 192.168.47.254, TTL minus 1.'],pkt:[f3m,f3ip,row('ttl','TTL','63','ip'),f3l4]},
+  {path:['|h2_up','|bus8','-r8','r8'],hl:['h2_up','bus8','r8'],enc:'ip8',t:['一般 VLAN 8 frame 出去','Out as a plain VLAN 8 frame'],d:['以 802.1Q VLAN 8 送到實體閘道 192.168.47.254。沒有 Geneve、沒有 Edge,也沒有 NSX NAT:VLAN-backed VPC 只用 Public subnet,節點 IP 在資料中心裡本來就能路由。','Sent with an 802.1Q VLAN 8 tag to the physical gateway 192.168.47.254. No Geneve, no Edge and no NSX NAT: a VLAN-backed VPC uses Public subnets only, so node IPs are already routable in the data center.'],pkt:[V8,f3m,f3ip,row('ttl','TTL','63','ip'),f3l4]},
+  {path:['|rlane','-rm','rm','-lan','|harbor','harbor'],hl:['rm','lan','harbor'],enc:'mgmt',t:['路由器轉到 Harbor','The router forwards to Harbor'],d:['路由器轉到管理網段,Harbor 看到的來源是 192.168.33.3。回程時路由器把 192.168.32.0/20 當直連網段,直接在 VLAN 8 上送回 esx02,不需要 BGP。','The router forwards it into the management network, and Harbor sees source 192.168.33.3. On the way back the router treats 192.168.32.0/20 as directly connected and sends the reply straight to esx02 on VLAN 8. No BGP is needed.'],pkt:[f3ip,row('ttl','TTL','62','ip'),f3l4]}
+ ]},
+ {n:['外部 → LoadBalancer Service','Outside → LoadBalancer Service'],s:['VIP 在 VNA,pool 是每台 worker 的 NodePort','VIP on the VNA; the pool is every worker\'s NodePort'],steps:[
+  {path:['client'],hl:['client'],enc:'mgmt',t:['用戶端連 VIP','Client connects to the VIP'],d:['curl http://192.168.40.0/。這是 Service web-lb(type LoadBalancer)的 VIP,VNA 從 External IP block 配出來。','curl http://192.168.40.0/. This is the VIP of Service web-lb (type LoadBalancer), allocated by the VNA from the External IP block.'],pkt:[f4a,f4b]},
+  {path:['-lan','|rm','rm'],hl:['lan','rm'],enc:'mgmt',t:['到實體路由器','Reaches the physical router'],d:['封包經管理網段到路由器。192.168.40.0 落在 VLAN 8 的 /20 裡,路由器直接在 VLAN 8 上找它。','The packet crosses the management network to the router. 192.168.40.0 is inside the VLAN 8 /20, so the router looks for it directly on VLAN 8.'],pkt:[f4a,f4b]},
+  {path:['|rlane','-r8','r8','|bus8','-d8_h1','|h1_up'],hl:['r8','bus8','h1_up'],enc:'ip8',t:['VLAN 8 送到 VNA 所在主機','VLAN 8 to the VNA host'],d:['frame 以 802.1Q VLAN 8 送到 VNA 所在的 esx01。','The frame goes with an 802.1Q VLAN 8 tag to esx01, where the VNA runs.'],pkt:[V8,f4a,f4b]},
+  {path:['|h1_vds','-vna_nic','vna_nic'],hl:['h1_vds','vna_nic','vna_vip_web'],enc:'ip',t:['VNA 的 LB 改寫封包','The VNA load balancer rewrites it'],d:['VNA 上的虛擬伺服器 192.168.40.0:80 收下。pool 成員是每一台 worker 的 NodePort(本例 31184),這次挑中 worker-b。來源改成 VNA 自己在 VLAN 8 上的 IP(SNAT),目的改成 192.168.33.4:31184。','The virtual server 192.168.40.0:80 on the VNA accepts it. Pool members are the NodePort (31184 here) of every worker; this time it picks worker-b. The source becomes the VNA\'s own VLAN 8 IP (SNAT) and the destination becomes 192.168.33.4:31184.'],pkt:[f4ip,f4l4,row('lb','VNA LB',['SNAT 來源 + DNAT 到 NodePort','SNAT source + DNAT to NodePort'],'vna')]},
+  {path:['|h1_vds','-d8_h1','|h1_up','|bus8','-d8_h3','|h3_up'],hl:['h1_vds','h1_up','bus8','h3_up'],enc:'ip8',t:['VNA → worker-b','VNA → worker-b'],d:['改寫後的封包一樣是 VLAN 8 上的一般 frame,從 esx01 送到 esx03,沒有 Geneve。','The rewritten packet is still a plain VLAN 8 frame, from esx01 to esx03, with no Geneve.'],pkt:[V8,f4ip,f4l4]},
+  {path:['|h3_vds','|wb_eth0'],hl:['h3_vds','wb_eth0'],enc:'ip',t:['worker-b 收到 NodePort','worker-b receives the NodePort'],d:['esx03 的 VDS 交給 worker-b 的 eth0,目的 192.168.33.4:31184。','The esx03 VDS delivers it to worker-b eth0, destination 192.168.33.4:31184.'],pkt:[f4ip,f4l4]},
+  {path:['|wb_ovs'],hl:['wb_ovs'],enc:'pod',t:['NodePort DNAT 成 Pod','NodePort DNAT to a pod'],d:['kube-proxy / AntreaProxy 把 NodePort DNAT 成後端 Pod。這次挑到本機的 web-2;如果挑到別台節點上的 Pod,就再走一次「Pod → Pod(跨節點)」的 Antrea Geneve。','kube-proxy / AntreaProxy DNATs the NodePort to a backend pod. This time it picks the local web-2. If it picks a pod on another node, the packet takes the Antrea Geneve path from "Pod → Pod (across nodes)".'],pkt:[f4pip,f4pl4,row('nat',['節點','Node'],'NodePort DNAT → web-2','pod')]},
+  {path:['|wb_web2'],hl:['wb_web2'],enc:'pod',t:['web-2 回應','web-2 replies'],d:['web-2 看到的來源是 VNA 的 IP,不是用戶端 IP。回應原路回到 VNA,VNA 把來源換回 VIP 再回給用戶端。externalTrafficPolicy=Local 不會減少 pool 成員,只改健康檢查。','web-2 sees the VNA IP as the source, not the client IP. The reply goes back to the VNA, which restores the VIP as the source and answers the client. externalTrafficPolicy=Local does not shrink the pool; it only changes the health check.'],pkt:[f4pip,f4pl4]}
+ ]},
+ {n:['kubectl → VKS 叢集 API','kubectl → VKS cluster API'],s:['API endpoint 也是 VNA 上的 VIP','The API endpoint is a VIP on the VNA too'],steps:[
+  {path:['client'],hl:['client'],enc:'mgmt',t:['kubectl 連叢集 API','kubectl calls the cluster API'],d:['kubectl 連 vks-cl01 的 API endpoint 192.168.32.32:6443。這個 VIP 在建叢集時自動配出,一樣在 VNA 上(m02 實測配到 32.32)。','kubectl connects to the vks-cl01 API endpoint 192.168.32.32:6443. This VIP is allocated when the cluster is created and also lives on the VNA (the lab got 32.32).'],pkt:[f5a,f5b]},
+  {path:['-lan','|rm','rm'],hl:['lan','rm'],enc:'mgmt',t:['到實體路由器','Reaches the physical router'],d:['封包經管理網段到路由器,路由器在 VLAN 8 上找 192.168.32.32。','The packet crosses the management network to the router, which looks for 192.168.32.32 on VLAN 8.'],pkt:[f5a,f5b]},
+  {path:['|rlane','-r8','r8','|bus8','-d8_h1','|h1_up','|h1_vds','-vna_nic','vna_nic'],hl:['r8','bus8','h1_up','h1_vds','vna_nic','vna_vip_k8s'],enc:'ip8',t:['VNA 收下 :6443','The VNA accepts :6443'],d:['VLAN 8 送到 esx01 的 VNA。這個虛擬伺服器的 pool 是 control plane 節點的 6443。','VLAN 8 delivers it to the VNA on esx01. The pool of this virtual server is port 6443 on the control plane nodes.'],pkt:[V8,f5a,f5b]},
+  {path:['|h1_vds','-cp_eth0','cp_eth0'],hl:['vna_nic','h1_vds','cp_eth0'],enc:'ip',t:['轉給 control plane','Forwarded to the control plane'],d:['本圖把 VNA 和 control plane 畫在同一台 esx01(示意),frame 在主機內就交換完,不上實體網路。放在不同主機時就走 VLAN 8。','This diagram places the VNA and the control plane on the same host, esx01 (illustrative), so the frame is switched inside the host. On different hosts it would cross VLAN 8.'],pkt:[f5ip,f5l4,row('lb','VNA LB',['SNAT + DNAT 到 control plane','SNAT + DNAT to the control plane'],'vna')]},
+  {path:['|cp_api'],hl:['cp_api'],enc:'ip',t:['kube-apiserver 處理','kube-apiserver handles it'],d:['kube-apiserver 用 hostNetwork 聽 192.168.33.2:6443,不經 Pod 網路。control plane 有 3 台時,pool 就有 3 個成員。','kube-apiserver listens on 192.168.33.2:6443 with hostNetwork, outside the pod network. With 3 control plane nodes the pool has 3 members.'],pkt:[f5ip,f5l4]}
+ ]},
+ {n:['叢集 → Supervisor API','Cluster → Supervisor API'],s:['paravirtual CPI / CSI 找 Supervisor 要資源','Paravirtual CPI / CSI ask the Supervisor for resources'],steps:[
+  {path:['cp_eth0'],hl:['cp_eth0'],enc:'ip',t:['叢集元件呼叫 Supervisor','Cluster components call the Supervisor'],d:['VKS 叢集裡的 paravirtual CPI 和 pvCSI 要請 Supervisor 建 LB、掛 PV。叢集內的 supervisor.default.svc 指向 Supervisor 的外部 VIP 192.168.32.5:6443。這裡以 control plane 節點為來源(示意)。','The paravirtual CPI and pvCSI in the VKS cluster ask the Supervisor to create load balancers and attach volumes. supervisor.default.svc inside the cluster points to the Supervisor\'s external VIP 192.168.32.5:6443. The control plane node is the source here (illustrative).'],pkt:[f6a,f6b]},
+  {path:['|h1_vds','|h1_dtgw'],hl:['h1_vds','h1_dtgw'],enc:'ip',t:['本機 DTGW 路由','The local DTGW routes it'],d:['192.168.32.5 不在 33.0/24,交給 esx01 上的 DTGW 路由。','192.168.32.5 is not in 33.0/24, so the DTGW on esx01 routes it.'],pkt:[f6a,row('ttl','TTL','64 → 63','ip'),f6b]},
+  {path:['-vna_nic','vna_nic'],hl:['vna_nic','vna_vip_sv'],enc:'ip',t:['VNA 收下 :6443','The VNA accepts :6443'],d:['Supervisor API 的 VIP 也在 VNA 上。VNA 和來源節點同在 esx01,在主機內就轉到。','The Supervisor API VIP is on the VNA too. The VNA and the source node are both on esx01, so the packet stays inside the host.'],pkt:[f6a,f6b,row('lb','VNA LB','VIP 192.168.32.5 → Supervisor','vna')]},
+  {path:['|h1_vds','-d8_h1','|h1_up','|bus8','-d8_h2','|h2_up','|h2_vds','-sv_nic','sv_nic'],hl:['h1_vds','h1_up','bus8','h2_up','h2_vds','sv_nic'],enc:'ip8',t:['VNA → Supervisor CP VM','VNA → Supervisor CP VM'],d:['VNA 把連線轉給 Supervisor CP VM 的工作負載 NIC(系統段 192.168.32.0/27)。CP VM 在 esx02,所以走 VLAN 8 過去。','The VNA forwards the connection to the workload NIC of the Supervisor CP VM (system range 192.168.32.0/27). That VM runs on esx02, so the packet crosses VLAN 8.'],pkt:[V8,f6ip,f6b]},
+  {path:['|sv_api'],hl:['sv_api','sv_ctl'],enc:'ip',t:['Supervisor 下指令','The Supervisor acts'],d:['kube-apiserver 收到請求。之後由 Supervisor 上的控制器叫 NSX 在 VNA 建 VIP(「外部 → LoadBalancer」那條的 192.168.40.0 就是這樣來的),叫 vCenter 建節點 VM、掛磁碟。','kube-apiserver accepts the request. Controllers on the Supervisor then ask NSX to create a VIP on the VNA (that is where 192.168.40.0 in "Outside → LoadBalancer" comes from) and ask vCenter to create node VMs and attach disks.'],pkt:[f6ip,f6b]}
+ ]},
+ {n:['NFS PV(eth1 · VLAN 7)','NFS PV (eth1 · VLAN 7)'],s:['不經 DTGW、不經 VNA','Bypasses the DTGW and the VNA'],steps:[
+  {path:['wb_web3'],hl:['wb_web3'],enc:'pod',t:['web-3 寫 PVC','web-3 writes to its PVC'],d:['web-3 寫入 RWX 的 PVC(StorageClass nas-nfs-rwx,NFS CSI)。NFS 掛載點在節點的 kernel,Pod 只看到檔案系統。','web-3 writes to an RWX PVC (StorageClass nas-nfs-rwx, NFS CSI). The NFS mount lives in the node kernel; the pod only sees a filesystem.'],pkt:[row('io',['檔案 I/O','File I/O'],'write /data (PVC RWX)','pod')]},
+  {path:['|wb_eth1'],hl:['wb_eth1'],enc:'nfs',t:['走 eth1 直連','Straight out of eth1'],d:['lab 實測:192.168.17.20 dev eth1(直連)。NFS 從 eth1 192.168.17.66 出去,不經 OVS,也不走 eth0 和 33.1。','Measured in the lab: 192.168.17.20 dev eth1 (directly connected). NFS leaves from eth1 192.168.17.66, not through OVS, eth0 or 33.1.'],pkt:[f7ip,f7l4]},
+  {path:['|h3_vds'],hl:['h3_vds'],enc:'nfs',t:['接在 VLAN 7 子網','On the VLAN 7 subnet'],d:['eth1 接在 NSX subnet nas-vlan7,這是 Dedicated to Subnet 的 VLAN 延伸(Layer 2)。VDS 打上 VLAN 7。','eth1 is attached to the NSX subnet nas-vlan7, a Dedicated to Subnet VLAN extension (Layer 2). The VDS tags it VLAN 7.'],pkt:[f7ip,f7l4]},
+  {path:['|h3_up','|bus7','-nas','nas'],hl:['h3_up','bus7','nas'],enc:'nfs7',t:['直接到 NAS','Straight to the NAS'],d:['VLAN 7 跟 NAS 在同一個 L2 網段,frame 直接送到 NAS。不經 DTGW、不經 VNA,也不經實體路由器。','VLAN 7 and the NAS share one L2 segment, so the frame goes directly to the NAS. No DTGW, no VNA and no physical router.'],pkt:[V7,f7ip,f7l4]},
+  {path:[],hl:['nas'],enc:'nfs',t:['NAS 只看到 17.x','The NAS only sees 17.x'],d:['lab 實測:NAS 上 ss 只有 192.168.17.6x 的連線,沒有 33.x,NFS 完全沒走 VPC 和 VNA。CSI controller 建 PVC 時一樣走 eth1。','Measured in the lab: ss on the NAS shows only 192.168.17.6x connections and no 33.x, so NFS never touched the VPC or the VNA. The CSI controller also uses eth1 when it provisions a PVC.'],pkt:[f7ip,f7l4]}
+ ]}
+];
+
+/* ---------- geometry ---------- */
+function anchor(id){
+  if(PT[id])return {x:PT[id].x,y:PT[id].y};
+  var r=R[id]; if(!r)throw new Error('unknown id '+id);
+  switch(ANC[id]){
+    case 'c':return {x:r.x+r.w/2,y:r.y+r.h/2};
+    case 'r':return {x:r.x+r.w,y:r.y+r.h/2};
+    case 'l':return {x:r.x,y:r.y+r.h/2};
+    case 't':return {x:r.x+r.w/2,y:r.y};
+    default:return {x:r.x+r.w/2,y:r.y+r.h};
+  }
+}
+function resolve(path,start){
+  var pts=[start],c=start;
+  path.forEach(function(w){
+    var p,q;
+    if(w.charAt(0)==='|'){q=anchor(w.slice(1));p={x:c.x,y:q.y};}
+    else if(w.charAt(0)==='-'){q=anchor(w.slice(1));p={x:q.x,y:c.y};}
+    else p=anchor(w);
+    if(p.x!==c.x||p.y!==c.y)pts.push(p);
+    c=p;
+  });
+  return pts;
+}
+build();
+FLOWS.forEach(function(f){
+  var cur=null, inv={};
+  f.steps.forEach(function(s,i){
+    if(i===0)s.pts=resolve(s.path.slice(1),anchor(s.path[0]));
+    else s.pts=resolve(s.path,cur);
+    cur=s.pts[s.pts.length-1];
+    s.hl.forEach(function(h){inv[h]=1;var p=PARENT[h];while(p){inv[p]=1;p=PARENT[p];}});
+  });
+  f.inv=inv;
+});
+
+/* ---------- token ---------- */
+function setTok(p){tok.setAttribute('transform','translate('+p.x+','+p.y+')');}
+var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+var raf=0;
+function animateAlong(pts,done){
+  cancelAnimationFrame(raf);
+  var segs=[],L=0;
+  for(var i=1;i<pts.length;i++){var l=Math.hypot(pts[i].x-pts[i-1].x,pts[i].y-pts[i-1].y);segs.push(l);L+=l;}
+  if(reduce||L<1){setTok(pts[pts.length-1]);if(done)done();return;}
+  var dur=Math.min(1500,Math.max(420,L*1.25)), t0=performance.now();
+  function frame(now){
+    var t=Math.min(1,(now-t0)/dur), e=t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2, dist=e*L, k=0;
+    while(k<segs.length-1&&dist>segs[k]){dist-=segs[k];k++;}
+    var a=pts[k],b=pts[k+1]||a,r=segs[k]?dist/segs[k]:1;
+    setTok({x:a.x+(b.x-a.x)*r,y:a.y+(b.y-a.y)*r});
+    if(t<1)raf=requestAnimationFrame(frame);else if(done)done();
+  }
+  raf=requestAnimationFrame(frame);
+}
+
+/* ---------- render ---------- */
+var F=1,S=0,playing=false,playTimer=0;
+var ENC_TR={pod:'c-ant',gnv:'c-ant',gnv8:'c-ant',ip:'c-ip',ip8:'c-ip',nfs:'c-nfs',nfs7:'c-nfs',mgmt:'c-mgmt'};
+function drawTrails(f){
+  while(LT.firstChild)LT.removeChild(LT.firstChild);
+  f.steps.forEach(function(st,i){
+    if(st.pts.length<2)return;
+    var cls=i<S?'past':(i===S?'now':'next');
+    var d=st.pts.map(function(p){return p.x+','+p.y;}).join(' ');
+    if(/8$/.test(st.enc))E('polyline',{points:d,'class':'tr under '+cls},LT);
+    E('polyline',{points:d,'class':'tr '+ENC_TR[st.enc]+' '+cls},LT);
+  });
+}
+function renderNodes(f,s){
+  Object.keys(R).forEach(function(id){
+    var g=R[id].g;
+    g.classList.toggle('dim',!f.inv[id]);
+    g.classList.toggle('on',s.hl.indexOf(id)>=0);
+  });
+}
+function prow(r,cls,badge){
+  var d=document.createElement('div');d.className='prow kind-'+r[3]+(cls?' '+cls:'');
+  var a=document.createElement('span');a.className='lab';a.textContent=tr(r[1]);
+  var v=document.createElement('span');v.className='val';v.textContent=tr(r[2]);
+  if(badge)v.setAttribute('data-badge',badge);
+  d.appendChild(a);d.appendChild(v);return d;
+}
+function renderPanel(f,s){
+  $('#pnFlow').textContent=tr(f.n);
+  $('#cnt').textContent=(S+1)+' / '+f.steps.length;
+  $('#stT').textContent=tr(s.t);
+  $('#stD').textContent=tr(s.d);
+  var ol=$('#stList');ol.innerHTML='';
+  f.steps.forEach(function(st,i){
+    var li=document.createElement('li'),b=document.createElement('button');
+    b.type='button';b.textContent=tr(st.t);b.className='stb'+(i===S?' cur':'')+(i<S?' done':'');
+    if(i===S)b.setAttribute('aria-current','step');
+    b.addEventListener('click',function(){stopPlay();go(i,false);});
+    li.appendChild(b);ol.appendChild(li);
+  });
+  var box=$('#pkt');box.innerHTML='';
+  var prev=S>0?f.steps[S-1].pkt:null, pm={}, cur={};
+  if(prev)prev.forEach(function(r){pm[r[0]]=tr(r[2]);});
+  s.pkt.forEach(function(r){
+    cur[r[0]]=1;
+    var badge=null;
+    if(prev){if(!(r[0] in pm))badge=ui('newB');else if(pm[r[0]]!==tr(r[2]))badge=ui('chg');}
+    box.appendChild(prow(r,'',badge));
+  });
+  if(prev){
+    var gone=prev.filter(function(r){return !cur[r[0]];});
+    if(gone.length){
+      var h=document.createElement('p');h.className='gone-h';h.textContent=ui('gone');box.appendChild(h);
+      gone.forEach(function(r){box.appendChild(prow(r,'gone',null));});
+    }
+  }
+  $('#prev').disabled=S===0;
+  $('#next').disabled=S===f.steps.length-1;
+}
+function go(i,animate,done){
+  var f=FLOWS[F];S=Math.max(0,Math.min(i,f.steps.length-1));
+  var s=f.steps[S];
+  tok.setAttribute('class','tok e-'+s.enc);
+  renderNodes(f,s);drawTrails(f);renderPanel(f,s);
+  revealPoint(s.pts[s.pts.length-1]);
+  if(animate&&s.pts.length>1)animateAlong(s.pts,done);
+  else{cancelAnimationFrame(raf);setTok(s.pts[s.pts.length-1]);if(done)done();}
+}
+/* narrow screens: the diagram scrolls sideways, so keep the packet's destination in view */
+function revealPoint(p){
+  var wrap=svg.parentNode;
+  if(!wrap||wrap.scrollWidth<=wrap.clientWidth+2)return;
+  var scale=svg.getBoundingClientRect().width/1200;
+  var target=Math.max(0,p.x*scale-wrap.clientWidth/2);
+  try{wrap.scrollTo({left:target,behavior:reduce?'auto':'smooth'});}catch(e){wrap.scrollLeft=target;}
+}
+var nav=$('#flows');
+function renderFlows(){
+  Array.prototype.forEach.call(nav.querySelectorAll('.flow'),function(b){b.remove();});
+  FLOWS.forEach(function(f,i){
+    var b=document.createElement('button');b.type='button';b.className='flow';b.setAttribute('aria-pressed',String(i===F));
+    var n=document.createElement('span');n.className='fn';n.textContent=tr(f.n);
+    var s=document.createElement('span');s.className='fs';s.textContent=tr(f.s);
+    b.appendChild(n);b.appendChild(s);
+    b.addEventListener('click',function(){selectFlow(i);});
+    nav.appendChild(b);
+  });
+}
+function selectFlow(i){
+  stopPlay();F=i;
+  Array.prototype.forEach.call(nav.querySelectorAll('.flow'),function(b,j){
+    b.setAttribute('aria-pressed',String(j===F));
+    if(j===F&&nav.scrollWidth>nav.clientWidth+2){nav.scrollLeft=Math.max(0,b.offsetLeft-nav.offsetLeft-16);}
+  });
+  go(0,false);
+}
+function setPlayLabel(){var p=$('#play');p.textContent=playing?ui('pause'):ui('play');p.setAttribute('aria-pressed',String(playing));}
+function stopPlay(){playing=false;clearTimeout(playTimer);setPlayLabel();}
+function tick(){
+  if(!playing)return;
+  var f=FLOWS[F];
+  if(S>=f.steps.length-1){stopPlay();return;}
+  go(S+1,true,function(){if(playing)playTimer=setTimeout(tick,1800);});
+}
+$('#play').addEventListener('click',function(){
+  if(playing){stopPlay();return;}
+  playing=true;setPlayLabel();
+  if(S>=FLOWS[F].steps.length-1)go(0,false);
+  playTimer=setTimeout(tick,500);
+});
+$('#next').addEventListener('click',function(){stopPlay();go(S+1,true);});
+$('#prev').addEventListener('click',function(){stopPlay();go(S-1,false);});
+document.addEventListener('keydown',function(e){
+  if($('#v-walk').hidden)return;
+  var t=e.target&&e.target.tagName;if(t==='INPUT'||t==='TEXTAREA')return;
+  if(e.key==='ArrowRight'){stopPlay();go(S+1,true);e.preventDefault();}
+  else if(e.key==='ArrowLeft'){stopPlay();go(S-1,false);e.preventDefault();}
+});
+
+/* ---------- fit labels ---------- */
+function fitAll(){
+  Array.prototype.forEach.call(svg.querySelectorAll('text[data-max]'),function(t){
+    t.style.fontSize='';
+    var max=+t.getAttribute('data-max'),len=0;
+    try{len=t.getComputedTextLength();}catch(e){}
+    if(len>max&&len>0){var fs=parseFloat(getComputedStyle(t).fontSize)||12;t.style.fontSize=Math.max(8,fs*max/len).toFixed(2)+'px';}
+  });
+}
+
+/* ---------- IP bar ---------- */
+(function(){
+  var bar=$('#ipbar'),oct=$('#ipoct');
+  for(var o=32;o<=47;o++){
+    var r=o===32?'sys':o===33?'node':o===34?'resv':o<=39?'excl':o<=43?'vip':'out';
+    var d=document.createElement('div');d.className='seg r-'+r+(o===47?' gw':'');
+    d.setAttribute('role','img');d.setAttribute('aria-label','192.168.'+o+'.0/24');d.title='192.168.'+o+'.0/24';
+    bar.appendChild(d);
+    var s=document.createElement('span');s.textContent=o;oct.appendChild(s);
+  }
+})();
+
+/* ---------- language + theme ---------- */
+function setLang(l,save){
+  LANG=(l==='en')?'en':'zh';
+  document.documentElement.lang=LANG==='en'?'en':'zh-Hant';
+  document.title=ui('title');
+  Array.prototype.forEach.call(document.querySelectorAll('.seg2 button'),function(b){b.setAttribute('aria-pressed',String(b.getAttribute('data-lang')===LANG));});
+  $('#prev').textContent=ui('prev');$('#next').textContent=ui('next');setPlayLabel();setThemeLabel();
+  build();renderFlows();go(S,false);
+  if(!$('#v-walk').hidden)fitAll();
+  if(save){store('vks-walk-lang',LANG);try{var u=new URL(location.href);u.searchParams.set('lang',LANG);history.replaceState(null,'',u);}catch(e){}}
+}
+Array.prototype.forEach.call(document.querySelectorAll('.seg2 button'),function(b){
+  b.addEventListener('click',function(){setLang(b.getAttribute('data-lang'),true);});
+});
+var THEME='auto';
+function setThemeLabel(){$('#theme').textContent=UI[LANG].theme[THEME];}
+function applyTheme(t){
+  THEME=t;
+  if(t==='auto')document.documentElement.removeAttribute('data-theme');else document.documentElement.setAttribute('data-theme',t);
+  setThemeLabel();
+}
+$('#theme').addEventListener('click',function(){var n=THEME==='auto'?'dark':THEME==='dark'?'light':'auto';applyTheme(n);store('vks-walk-theme',n);});
+
+/* ---------- views ---------- */
+var VIEWS=['walk','ip','compare'];
+function showView(v){
+  if(VIEWS.indexOf(v)<0)v='walk';
+  VIEWS.forEach(function(x){
+    document.getElementById('v-'+x).hidden=(x!==v);
+    var a=document.querySelector('.tabs a[href="#'+x+'"]');
+    if(x===v)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');
+  });
+  if(v==='walk')fitAll();
+}
+window.addEventListener('hashchange',function(){showView(location.hash.slice(1));});
+
+/* ---------- start ---------- */
+var qs=null;try{qs=new URLSearchParams(location.search).get('lang');}catch(e){}
+var startLang=qs||store('vks-walk-lang')||((navigator.language||'').toLowerCase().indexOf('zh')===0?'zh':'en');
+var savedTheme=store('vks-walk-theme');
+applyTheme(savedTheme==='dark'||savedTheme==='light'?savedTheme:'auto');
+showView(location.hash.slice(1));
+setLang(startLang,false);
+})();
+</script>
+</body>
+</html>
