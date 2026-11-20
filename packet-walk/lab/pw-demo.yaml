@@ -1,0 +1,75 @@
+# Demo for the packet-walk captures.
+# app-1 in the diagram = pw-app, web-1 / web-2 = the two pw-web pods.
+# Pod Security is "restricted" on VKS, so every pod carries a full securityContext.
+# Images come from the lab Harbor (harbor01.home.lab/vks-apps).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pw-demo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pw-web
+  namespace: pw-demo
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: pw-web}
+  template:
+    metadata:
+      labels: {app: pw-web}
+    spec:
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels: {app: pw-web}
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+      - name: nginx
+        image: harbor01.home.lab/vks-apps/nginx-unprivileged:1.30.4-alpine
+        ports:
+        - containerPort: 8080
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities: {drop: ["ALL"]}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pw-app
+  namespace: pw-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: pw-app}
+  template:
+    metadata:
+      labels: {app: pw-app}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+      - name: client
+        image: harbor01.home.lab/vks-apps/busybox:1.37.0
+        command: ["sleep", "86400"]
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities: {drop: ["ALL"]}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pw-lb
+  namespace: pw-demo
+spec:
+  type: LoadBalancer
+  selector: {app: pw-web}
+  ports:
+  - {name: http, port: 80, targetPort: 8080, protocol: TCP}

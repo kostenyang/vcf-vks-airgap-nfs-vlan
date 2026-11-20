@@ -183,6 +183,35 @@ h1 .mono{font-weight:600;letter-spacing:-.02em}
 .e-gnv8 .tring,.e-ip8 .tring{opacity:1;stroke:var(--c-vlan)}
 .e-nfs7 .tring{opacity:1;stroke:var(--c-nfs)}
 
+/* capture commands */
+.cap{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.cap-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0 0 10px}
+.cap-h b{font-size:15px}
+.cap-h a{font-size:13px}
+.capi{display:grid;gap:6px;margin-bottom:14px;min-width:0}
+.where{justify-self:start;font-size:12px;font-weight:600;padding:1px 9px;border-radius:9px;background:var(--wcs);color:var(--wc);border:1px solid var(--wc)}
+.w-node{--wc:var(--c-ant);--wcs:var(--c-ant-s)}
+.w-esx,.w-dr{--wc:var(--c-dtgw);--wcs:var(--c-dtgw-s)}
+.w-sr{--wc:var(--c-vna);--wcs:var(--c-vna-s)}
+.w-ros{--wc:var(--c-vlan);--wcs:var(--c-vlan-s)}
+.w-pc,.w-sv{--wc:var(--c-mgmt);--wcs:var(--c-mgmt-s)}
+.w-nas{--wc:var(--c-nfs);--wcs:var(--c-nfs-s)}
+.w-vc,.w-harbor{--wc:var(--c-sv);--wcs:var(--c-sv-s)}
+.code{position:relative;min-width:0}
+.code pre{margin:0;padding:10px 12px;padding-right:72px;background:var(--sunken);border:1px solid var(--line);border-radius:6px;overflow-x:auto;font-family:var(--f-mono);font-size:12.5px;line-height:1.55;color:var(--ink);white-space:pre;tab-size:2}
+.copy{position:absolute;top:6px;right:6px;font:inherit;font-size:12px;padding:2px 9px;border-radius:5px;border:1px solid var(--line2);background:var(--panel);color:var(--ink2);cursor:pointer}
+.copy:hover{color:var(--ink);border-color:var(--ink2)}
+.copy:focus-visible{outline:2px solid var(--c-dtgw);outline-offset:2px}
+.see{font-size:13.5px;color:var(--ink2);margin:0;max-width:90ch}
+.setup{max-width:1100px}
+.setup h2{font-size:22px;margin:22px 0 10px}
+.setup h3{font-size:17px;margin:26px 0 6px}
+.setup p{margin:0 0 8px;color:var(--ink2);max-width:90ch}
+.warn{padding:12px 16px;border-radius:8px;background:var(--c-vlan-s);border-left:4px solid var(--c-vlan);color:var(--ink);max-width:90ch;margin:0 0 8px}
+details.fc{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 16px;margin-top:8px}
+details.fc summary{cursor:pointer;font-weight:600}
+details.fc h4{font-size:14px;margin:14px 0 6px}
+
 /* sections: ip + compare */
 .sec-head{margin:22px 0 14px}
 .sec-head h2{font-size:22px;margin:0 0 6px}
@@ -259,6 +288,7 @@ footer.notes li{margin:3px 0}
         <a href="#walk"><span class="zh">封包路徑</span><span class="en">Packet walk</span></a>
         <a href="#ip"><span class="zh">IP 規劃</span><span class="en">IP plan</span></a>
         <a href="#compare">VLAN vs overlay</a>
+        <a href="#capture"><span class="zh">抓包準備</span><span class="en">Capture setup</span></a>
       </nav>
       <div class="seg2" role="group" aria-label="Language / 語言">
         <button type="button" data-lang="zh" aria-pressed="true">中文</button>
@@ -306,6 +336,7 @@ footer.notes li{margin:3px 0}
               <div id="pkt"></div>
             </div>
           </div>
+          <div class="cap" id="cap"></div>
         </div>
       </div>
     </section>
@@ -438,6 +469,10 @@ footer.notes li{margin:3px 0}
       </div>
     </section>
 
+    <section id="v-capture" class="view" hidden>
+      <div class="setup" id="setup"></div>
+    </section>
+
     <footer class="notes">
       <b><span class="zh">來源與註記</span><span class="en">Sources and notes</span></b>
       <ul class="zh">
@@ -463,6 +498,7 @@ var NS='http://www.w3.org/2000/svg';
 var svg=document.getElementById('diag');
 function $(s){return document.querySelector(s);}
 function E(tag,attrs,parent,text){var e=document.createElementNS(NS,tag);if(attrs){for(var k in attrs){if(attrs[k]!=null)e.setAttribute(k,attrs[k]);}}if(text!=null)e.textContent=text;if(parent)parent.appendChild(e);return e;}
+var VARIANT='standalone';
 function store(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v);}catch(e){return null;}}
 
 /* ---------- language ---------- */
@@ -470,9 +506,11 @@ var LANG='zh';
 function tr(x){return Array.isArray(x)?x[LANG==='en'?1:0]:x;}
 var UI={
   zh:{prev:'‹ 上一步',next:'下一步 ›',play:'▶ 自動播放',pause:'❚❚ 暫停',newB:'新增',chg:'變更',gone:'這一步拿掉的',title:'VKS VLAN-backed VPC 封包路徑',
+      capH:'在這一跳抓包',capSetup:'抓包準備 →',copy:'複製',copied:'已複製',selected:'已選取,按 Ctrl+C',
       theme:{auto:'主題:自動',dark:'主題:深色',light:'主題:淺色'},
       diag:'三台 ESX 主機、VKS 節點、VNA、Supervisor、VLAN 8 與 VLAN 7 實體網路、路由器與 NAS 的拓撲圖'},
   en:{prev:'‹ Prev',next:'Next ›',play:'▶ Autoplay',pause:'❚❚ Pause',newB:'new',chg:'changed',gone:'Removed in this step',title:'VKS VLAN-backed VPC Packet Walk',
+      capH:'Capture at this hop',capSetup:'Capture setup →',copy:'Copy',copied:'Copied',selected:'Selected, press Ctrl+C',
       theme:{auto:'Theme: auto',dark:'Theme: dark',light:'Theme: light'},
       diag:'Topology with three ESX hosts, VKS nodes, the VNA, the Supervisor, the VLAN 8 and VLAN 7 physical networks, the router and the NAS'}
 };
@@ -515,7 +553,7 @@ function build(){
     E('rect',{x:x,y:16,width:376,height:470,rx:8,'class':'hbx'},g);
     var t=E('text',{x:x+12,y:38,'class':'th'},g);E('tspan',null,t,h[1]);E('tspan',{'class':'thm',dx:8},t,h[2]);
     box(id+'_vds',x+10,312,356,46,'vds','VDS · DFW','VLAN 8 = VPC subnet nodes · VLAN 7 = nas-vlan7');
-    box(id+'_dtgw',x+10,368,356,46,'dtgw',['DTGW · subnet 閘道 192.168.33.1','DTGW · subnet gateway 192.168.33.1'],'VPC → TGW → 0.0.0.0/0 via 192.168.47.254');
+    box(id+'_dtgw',x+10,368,356,46,'dtgw',['DTGW(DR)· subnet 閘道 192.168.33.1','DTGW (DR) · subnet gateway 192.168.33.1'],'VPC → TGW → 0.0.0.0/0 via 192.168.47.254');
     box(id+'_up',x+10,424,356,46,'up','vmnic0 / vmnic1 · trunk VLAN 7, 8',['沒有 TEP(vtep NO_IP)· MTU 1500 就夠','No TEP (vtep NO_IP) · MTU 1500 is enough']);
     PT['d8_'+id]={x:x+56,y:518}; PT['d7_'+id]={x:x+136,y:554};
     wire([[x+56,248],[x+56,312]],'w8'); wire([[x+136,248],[x+136,312]],'w7');
@@ -525,7 +563,7 @@ function build(){
     var x=HX[hi]+10, y=50;
     box(id,x,y,172,248,'vm',name,'eth0 '+eth0,{cont:true,mono:true});
     pods.forEach(function(p,i){box(id+'_'+p[0],x+8+i*80,y+44,76,44,'pod',p[1],p[2],{p:id,mono:true});});
-    box(id+'_ovs',x+8,y+100,156,46,'ovs','OVS br-int · Antrea','Geneve tunnel genev0',{p:id,mono:true});
+    box(id+'_ovs',x+8,y+100,156,46,'ovs','OVS br-int · Antrea','tunnel antrea-tun0',{p:id,mono:true});
     box(id+'_eth0',x+8,y+158,76,40,'nic8','eth0',s0,{p:id,mono:true});
     box(id+'_eth1',x+88,y+158,76,40,'nic7','eth1',s1,{p:id,mono:true});
     txt(R[id].g,x+10,y+218,'tn mono','eth1 '+eth1,{max:152});
@@ -536,7 +574,7 @@ function build(){
   nodeVM(2,'wb','worker-b','192.168.33.4','192.168.17.66','.33.4','.17.66',[['web2','web-2','.2.12'],['web3','web-3','.2.13']],'100.112.2.0/24');
 
   var x=HX[0]+194,y=50;
-  box('vna',x,y,172,248,'vnab','VNA · vks-vna','vcf-m02-vna01a · Large',{cont:true});
+  box('vna',x,y,172,248,'vnab',['VNA(SR)· vks-vna','VNA (SR) · vks-vna'],'vcf-m02-vna01a · Large',{cont:true});
   box('vna_vip_web',x+8,y+42,156,34,'vna','192.168.40.0:80','VIP · web-lb',{p:'vna',lmono:true});
   box('vna_vip_k8s',x+8,y+78,156,34,'vna','192.168.32.32:6443','VIP · vks-cl01 API',{p:'vna',lmono:true});
   box('vna_vip_sv',x+8,y+114,156,34,'vna','192.168.32.5:6443','VIP · Supervisor API',{p:'vna',lmono:true});
@@ -594,28 +632,28 @@ function build(){
 /* ---------- flows ---------- */
 function row(k,l,v,c){return [k,l,v,c];}
 var V8=row('vlan','802.1Q','VLAN 8','vlan'), V7=row('vlan','802.1Q','VLAN 7','nfs');
-var f1=[row('ip','Pod IP','100.112.1.10 → 100.112.1.11','pod'),row('l4','TCP','dport 80','pod')];
-var f2ip=row('ip','Pod IP','100.112.1.10 → 100.112.2.12','pod'), f2l4=row('l4','TCP','dport 80','pod'),
+var f1=[row('ip','Pod IP','100.112.1.10 → 100.112.1.11','pod'),row('l4','TCP','dport 8080','pod')];
+var f2ip=row('ip','Pod IP','100.112.1.10 → 100.112.2.12','pod'), f2l4=row('l4','TCP','dport 8080','pod'),
     f2m=row('mac',['外層 MAC','Outer MAC'],'04:50:56:00:18:00 → 04:50:56:00:64:00','gnv'),
     f2o=row('oip',['外層 IP','Outer IP'],'192.168.33.3 → 192.168.33.4','gnv'),
     f2u=row('udp',['外層 UDP','Outer UDP'],'dport 6081 · Geneve (Antrea)','gnv');
 var f3ip=row('ip','IP','192.168.33.3 → 10.0.0.86','ip'), f3l4=row('l4','TCP','dport 443','ip'), f3m=row('mac','MAC','DTGW → 192.168.47.254','ip');
 var f4a=row('ip','IP','10.0.0.x → 192.168.40.0','mgmt'), f4b=row('l4','TCP','dport 80','mgmt'),
     f4ip=row('ip','IP','VNA IP → 192.168.33.4','ip'), f4l4=row('l4','TCP','dport 31184 (NodePort)','ip'),
-    f4pip=row('ip','IP','VNA IP → 100.112.2.12','pod'), f4pl4=row('l4','TCP','dport 80','pod');
+    f4pip=row('ip','IP','VNA IP → 100.112.2.12','pod'), f4pl4=row('l4','TCP','dport 8080','pod');
 var f5a=row('ip','IP','10.0.0.x → 192.168.32.32','mgmt'), f5b=row('l4','TCP','dport 6443','mgmt'), f5ip=row('ip','IP','VNA IP → 192.168.33.2','ip'), f5l4=row('l4','TCP','dport 6443','ip');
 var f6a=row('ip','IP','192.168.33.2 → 192.168.32.5','ip'), f6b=row('l4','TCP','dport 6443','ip'), f6ip=row('ip','IP',['VNA IP → Supervisor 工作負載 IP','VNA IP → Supervisor workload IP'],'ip');
 var f7ip=row('ip','IP','192.168.17.66 → 192.168.17.20','nfs'), f7l4=row('l4','TCP','dport 2049 (NFS)','nfs');
 
 var FLOWS=[
  {n:['Pod → Pod(同節點)','Pod → Pod (same node)'],s:['只在節點 VM 的 OVS 裡轉','Switched inside the node VM\'s OVS only'],steps:[
-  {path:['wa_app1'],hl:['wa_app1'],enc:'pod',t:['app-1 送出封包','app-1 sends a packet'],d:['app-1(100.112.1.10)連 web-1(100.112.1.11):80。兩個 Pod 都在 worker-a,同一段 podCIDR 100.112.1.0/24。','app-1 (100.112.1.10) connects to web-1 (100.112.1.11):80. Both pods run on worker-a, in the same podCIDR 100.112.1.0/24.'],pkt:f1},
+  {path:['wa_app1'],hl:['wa_app1'],enc:'pod',t:['app-1 送出封包','app-1 sends a packet'],d:['app-1(100.112.1.10)連 web-1(100.112.1.11):8080(nginx-unprivileged 聽 8080)。兩個 Pod 都在 worker-a,同一段 podCIDR 100.112.1.0/24。','app-1 (100.112.1.10) connects to web-1 (100.112.1.11):8080 (nginx-unprivileged listens on 8080). Both pods run on worker-a, in the same podCIDR 100.112.1.0/24.'],pkt:f1},
   {path:['|wa_ovs'],hl:['wa_ovs'],enc:'pod',t:['進到 OVS br-int','Into OVS br-int'],d:['封包從 Pod 的 veth 進到節點裡的 OVS br-int。Antrea 查到目的 Pod 在本機;如果有 NetworkPolicy,也是在這裡檢查。','The packet leaves the pod veth and enters OVS br-int inside the node. Antrea sees that the destination pod is local. NetworkPolicy, if any, is enforced here.'],pkt:f1},
   {path:['-wa_web1','wa_web1'],hl:['wa_web1'],enc:'pod',t:['直接交給 web-1','Delivered to web-1'],d:['OVS 把封包轉到 web-1 的 veth。整趟都在 worker-a 這台 VM 裡,ESX 的 VDS、DTGW 和實體網路都看不到。','OVS forwards the packet to the web-1 veth. The whole trip stays inside the worker-a VM; the ESX VDS, the DTGW and the physical network never see it.'],pkt:f1}
  ]},
  {n:['Pod → Pod(跨節點)','Pod → Pod (across nodes)'],s:['Antrea 自己的 Geneve,跑在 VLAN 8 上','Antrea\'s own Geneve, carried on VLAN 8'],steps:[
   {path:['wa_app1'],hl:['wa_app1'],enc:'pod',t:['app-1 連 web-2','app-1 connects to web-2'],d:['目的 web-2(100.112.2.12)在另一個節點 worker-b。','The destination web-2 (100.112.2.12) runs on another node, worker-b.'],pkt:[f2ip,f2l4]},
-  {path:['|wa_ovs'],hl:['wa_ovs'],enc:'pod',t:['OVS 查到要送去 worker-b','OVS picks worker-b'],d:['Antrea 知道 100.112.2.0/24 屬於 worker-b(192.168.33.4),把封包交給 tunnel 埠 genev0。','Antrea knows 100.112.2.0/24 belongs to worker-b (192.168.33.4) and hands the packet to the tunnel port genev0.'],pkt:[f2ip,f2l4]},
+  {path:['|wa_ovs'],hl:['wa_ovs'],enc:'pod',t:['OVS 查到要送去 worker-b','OVS picks worker-b'],d:['Antrea 知道 100.112.2.0/24 屬於 worker-b(192.168.33.4),把封包交給 tunnel 埠 antrea-tun0。','Antrea knows 100.112.2.0/24 belongs to worker-b (192.168.33.4) and hands the packet to the tunnel port antrea-tun0.'],pkt:[f2ip,f2l4]},
   {path:['|wa_eth0'],hl:['wa_eth0'],enc:'gnv',t:['Antrea 封裝 Geneve','Antrea adds Geneve'],d:['整個 Pod frame 被包進 Geneve:外層是兩個節點的 eth0(33.3 → 33.4),UDP 6081。這是 Antrea 的 tunnel,跟 NSX TEP 無關。Antrea 會把 Pod 的 MTU 自動扣掉約 50 B 的封裝開銷。','The whole pod frame is wrapped in Geneve. The outer header uses the eth0 addresses of the two nodes (33.3 → 33.4), UDP 6081. This is Antrea\'s tunnel and has nothing to do with NSX TEPs. Antrea lowers the pod MTU by about 50 bytes to make room for it.'],pkt:[f2m,f2o,f2u,f2ip,f2l4]},
   {path:['|h2_vds'],hl:['h2_vds'],enc:'gnv',t:['ESX 只看到 VM 對 VM 的 UDP','ESX sees VM-to-VM UDP'],d:['對 esx02 來說,這只是 VPC subnet nodes 裡兩台 VM 之間的 UDP。同一個 subnet 不需要路由,VDS 直接交換,DFW 檢查 eth0。','To esx02 this is just UDP between two VMs in the VPC subnet nodes. Same subnet means no routing: the VDS switches it and DFW checks eth0.'],pkt:[f2m,f2o,f2u,f2ip,f2l4]},
   {path:['|h2_up','|bus8','-wb_eth0','|h3_up'],hl:['h2_up','bus8','h3_up'],enc:'gnv8',t:['帶 VLAN 8 跨過實體網路','Across the physical network on VLAN 8'],d:['主機沒有 TEP,NSX 不會再包一層。frame 帶 802.1Q VLAN 8 離開 esx02,經實體交換器到 esx03。underlay 看得到 VM 的 MAC 和 33.x 的 IP。','The hosts have no TEP, so NSX adds no extra layer. The frame leaves esx02 with an 802.1Q VLAN 8 tag and reaches esx03 through the physical switches. The underlay sees VM MACs and 33.x addresses.'],pkt:[V8,f2m,f2o,f2u,f2ip,f2l4]},
@@ -637,7 +675,7 @@ var FLOWS=[
   {path:['|h1_vds','-vna_nic','vna_nic'],hl:['h1_vds','vna_nic','vna_vip_web'],enc:'ip',t:['VNA 的 LB 改寫封包','The VNA load balancer rewrites it'],d:['VNA 上的虛擬伺服器 192.168.40.0:80 收下。pool 成員是每一台 worker 的 NodePort(本例 31184),這次挑中 worker-b。來源改成 VNA 自己在 VLAN 8 上的 IP(SNAT),目的改成 192.168.33.4:31184。','The virtual server 192.168.40.0:80 on the VNA accepts it. Pool members are the NodePort (31184 here) of every worker; this time it picks worker-b. The source becomes the VNA\'s own VLAN 8 IP (SNAT) and the destination becomes 192.168.33.4:31184.'],pkt:[f4ip,f4l4,row('lb','VNA LB',['SNAT 來源 + DNAT 到 NodePort','SNAT source + DNAT to NodePort'],'vna')]},
   {path:['|h1_vds','-d8_h1','|h1_up','|bus8','-d8_h3','|h3_up'],hl:['h1_vds','h1_up','bus8','h3_up'],enc:'ip8',t:['VNA → worker-b','VNA → worker-b'],d:['改寫後的封包一樣是 VLAN 8 上的一般 frame,從 esx01 送到 esx03,沒有 Geneve。','The rewritten packet is still a plain VLAN 8 frame, from esx01 to esx03, with no Geneve.'],pkt:[V8,f4ip,f4l4]},
   {path:['|h3_vds','|wb_eth0'],hl:['h3_vds','wb_eth0'],enc:'ip',t:['worker-b 收到 NodePort','worker-b receives the NodePort'],d:['esx03 的 VDS 交給 worker-b 的 eth0,目的 192.168.33.4:31184。','The esx03 VDS delivers it to worker-b eth0, destination 192.168.33.4:31184.'],pkt:[f4ip,f4l4]},
-  {path:['|wb_ovs'],hl:['wb_ovs'],enc:'pod',t:['NodePort DNAT 成 Pod','NodePort DNAT to a pod'],d:['kube-proxy / AntreaProxy 把 NodePort DNAT 成後端 Pod。這次挑到本機的 web-2;如果挑到別台節點上的 Pod,就再走一次「Pod → Pod(跨節點)」的 Antrea Geneve。','kube-proxy / AntreaProxy DNATs the NodePort to a backend pod. This time it picks the local web-2. If it picks a pod on another node, the packet takes the Antrea Geneve path from "Pod → Pod (across nodes)".'],pkt:[f4pip,f4pl4,row('nat',['節點','Node'],'NodePort DNAT → web-2','pod')]},
+  {path:['|wb_ovs'],hl:['wb_ovs'],enc:'pod',t:['NodePort DNAT 成 Pod','NodePort DNAT to a pod'],d:['kube-proxy / AntreaProxy 把 NodePort DNAT 成後端 Pod 的 8080。這次挑到本機的 web-2;如果挑到別台節點上的 Pod,就再走一次「Pod → Pod(跨節點)」的 Antrea Geneve。','kube-proxy / AntreaProxy DNATs the NodePort to port 8080 of a backend pod. This time it picks the local web-2. If it picks a pod on another node, the packet takes the Antrea Geneve path from "Pod → Pod (across nodes)".'],pkt:[f4pip,f4pl4,row('nat',['節點','Node'],'NodePort DNAT → web-2','pod')]},
   {path:['|wb_web2'],hl:['wb_web2'],enc:'pod',t:['web-2 回應','web-2 replies'],d:['web-2 看到的來源是 VNA 的 IP,不是用戶端 IP。回應原路回到 VNA,VNA 把來源換回 VIP 再回給用戶端。externalTrafficPolicy=Local 不會減少 pool 成員,只改健康檢查。','web-2 sees the VNA IP as the source, not the client IP. The reply goes back to the VNA, which restores the VIP as the source and answers the client. externalTrafficPolicy=Local does not shrink the pool; it only changes the health check.'],pkt:[f4pip,f4pl4]}
  ]},
  {n:['kubectl → VKS 叢集 API','kubectl → VKS cluster API'],s:['API endpoint 也是 VNA 上的 VIP','The API endpoint is a VIP on the VNA too'],steps:[
@@ -661,6 +699,356 @@ var FLOWS=[
   {path:['|h3_up','|bus7','-nas','nas'],hl:['h3_up','bus7','nas'],enc:'nfs7',t:['直接到 NAS','Straight to the NAS'],d:['VLAN 7 跟 NAS 在同一個 L2 網段,frame 直接送到 NAS。不經 DTGW、不經 VNA,也不經實體路由器。','VLAN 7 and the NAS share one L2 segment, so the frame goes directly to the NAS. No DTGW, no VNA and no physical router.'],pkt:[V7,f7ip,f7l4]},
   {path:[],hl:['nas'],enc:'nfs',t:['NAS 只看到 17.x','The NAS only sees 17.x'],d:['lab 實測:NAS 上 ss 只有 192.168.17.6x 的連線,沒有 33.x,NFS 完全沒走 VPC 和 VNA。CSI controller 建 PVC 時一樣走 eth1。','Measured in the lab: ss on the NAS shows only 192.168.17.6x connections and no 33.x, so NFS never touched the VPC or the VNA. The CSI controller also uses eth1 when it provisions a PVC.'],pkt:[f7ip,f7l4]}
  ]}
+];
+
+/* ---------- capture commands per hop (not yet run end to end in the lab) ---------- */
+var C=String.raw;
+var W={
+  pc:['你的電腦 · kubectl(叢集)','Your PC · kubectl (cluster)'],
+  sv:['你的電腦 · kubectl(Supervisor)','Your PC · kubectl (Supervisor)'],
+  node:['節點 debug shell','Node debug shell'],
+  esx:['ESXi SSH','ESXi SSH'],
+  dr:['ESXi SSH · DR(DTGW)','ESXi SSH · DR (DTGW)'],
+  sr:['VNA SSH · SR','VNA SSH · SR'],
+  ros:['RouterOS SSH','RouterOS SSH'],
+  harbor:['harbor01 SSH','harbor01 SSH'],
+  nas:['NAS SSH','NAS SSH'],
+  vc:['vCenter root shell','vCenter root shell']
+};
+function cap(w,c,s){return {w:w,c:c,s:s};}
+var DR_CMD=C`nsxcli -c "get logical-routers"                        # DRs on this host (VPC gateway / TGW)
+nsxcli -c "get logical-router <dr-uuid> interfaces"    # LIFs; one owns 192.168.33.1
+nsxcli -c "get logical-router <dr-uuid> forwarding"    # routes; next hop of 0.0.0.0/0
+nsxcli -c "get logical-router <dr-uuid> neighbor"      # ARP entries the DR learned
+pktcap-uw -A | grep -i vdr                             # DR capture points on this build, if any`;
+var SR_CMD=C`ssh admin@<vna-mgmt-ip>                 # m01: 10.0.1.39
+get logical-routers                     # SR / VRF list on the VNA
+get load-balancer                       # LBs and virtual servers (VIPs)
+get load-balancer <lb-uuid> ?           # list the sub-commands this build has
+get interfaces                          # find the VLAN 8 uplink interface UUID
+start capture interface <interface-uuid> direction dual`;
+var CAPS=[
+ [ // F1 same node
+  [cap('pc',C`kubectl -n pw-demo get pod -o wide
+kubectl -n pw-demo exec deploy/pw-app -- wget -qO- -T 3 http://<web-1-ip>:8080/`,
+   ['記下 app-1(pw-app)和 web-1(pw-web)的 IP 與所在節點。回得到 nginx 首頁就是通的。','Note the IP and node of app-1 (pw-app) and web-1 (pw-web). Getting the nginx page back means the path works.'])],
+  [cap('pc',C`kubectl apply -f - <<'EOF'
+apiVersion: crd.antrea.io/v1beta1
+kind: Traceflow
+metadata:
+  name: tf-same-node
+spec:
+  source: {namespace: pw-demo, pod: <app-1>}
+  destination: {namespace: pw-demo, pod: <web-1>}
+  packet:
+    ipHeader: {protocol: 6}
+    transportHeader: {tcp: {srcPort: 10000, dstPort: 8080, flags: 2}}
+EOF
+kubectl get traceflow tf-same-node -o yaml | sed -n '/^status:/,$p'`,
+   ['Antrea 在 OVS 裡模擬這個封包。status 只有一個節點的觀察,最後是 Delivered,中間沒有 tunnel。','Antrea simulates the packet inside OVS. The status shows one node only, ending in Delivered, with no tunnel in between.'])],
+  [cap('node',C`# debug shell on the node (setup step 6), veth names from setup step 7
+tcpdump -nni <web-1-veth> tcp port 8080
+tcpdump -nni eth0 tcp port 8080`,
+   ['web-1 的 veth 看得到 SYN;eth0 上抓不到(Ctrl-C 結束),代表封包沒離開節點。','The SYN shows up on the web-1 veth but not on eth0 (Ctrl-C to stop), so the packet never left the node.'])]
+ ],
+ [ // F2 across nodes
+  [cap('pc',C`kubectl -n pw-demo get pod -o wide        # web-2 must sit on another node
+kubectl -n pw-demo exec deploy/pw-app -- wget -qO- -T 3 http://<web-2-ip>:8080/`,
+   ['web-2 要在另一個節點。m01 只有 1 個 worker,先照準備步驟 5 加到 2 個。','web-2 must sit on another node. m01 has one worker, so scale to two first (setup step 5).'])],
+  [cap('pc',C`kubectl -n kube-system get cm -o name | grep antrea
+kubectl -n kube-system get cm <antrea-config> -o yaml | grep -E 'trafficEncapMode|tunnelType'
+# Traceflow: same YAML as the same-node path, name tf-cross-node, destination <web-2>
+kubectl get traceflow tf-cross-node -o yaml | sed -n '/^status:/,$p'`,
+   ['確認是 encap + geneve(被註解掉就是用預設值)。Traceflow 來源節點那段會帶 tunnelDstIP = worker-b 的 IP,目的節點那段最後是 Delivered。','Confirm encap + geneve (commented out means the defaults). In the Traceflow, the source-node part carries tunnelDstIP = the worker-b IP and the destination-node part ends in Delivered.'])],
+  [cap('node',C`# debug shell on worker-a
+tcpdump -nni eth0 -e -vv udp port 6081 -c 10
+ip link show antrea-gw0`,
+   ['外層是 33.x → 33.y 的 UDP 6081,-vv 會把裡面的 Pod IP 一起解出來。antrea-gw0 的 mtu 應該是 1450。','The outer header is UDP 6081 from 33.x to 33.y; -vv also decodes the pod IPs inside. antrea-gw0 should show mtu 1450.'])],
+  [cap('esx',C`# ESXi that runs worker-a
+esxcli network vm list | grep -i <worker-a-vm>
+esxcli network vm port list -w <world-id>
+pktcap-uw --switchport <port-id> --dir 2 --udpport 6081 -c 20 -o - | tcpdump-uw -enr -`,
+   ['port list 的 Portgroup 是 VPC subnet,Team Uplink 是這台 VM 走的 vmnic(下一步用)。ESXi 在這裡看到的就是一般 UDP。','In the port list, Portgroup is the VPC subnet and Team Uplink is the vmnic this VM uses (needed next). Here ESXi sees plain UDP.'])],
+  [cap('esx',C`pktcap-uw --uplink <team-uplink> --dir 2 --udpport 6081 -c 20 -o - | tcpdump-uw -enr -`,
+   ['-e 會看到 802.1Q vlan 8,MAC 是兩台節點 VM 的 MAC,沒有 TEP。worker-b 那台主機的 uplink 跑同一行,會看到同一個封包進來。','-e shows 802.1Q vlan 8 and the MACs of the two node VMs, with no TEP. Run the same line on the worker-b host uplink to see the packet arrive.'])],
+  [cap('esx',C`# ESXi that runs worker-b
+esxcli network vm list | grep -i <worker-b-vm>
+esxcli network vm port list -w <world-id>
+pktcap-uw --switchport <port-id> --dir 2 --udpport 6081 -c 20 -o - | tcpdump-uw -enr -`,
+   ['封包從 uplink 進來後,交給 worker-b 的埠。','The packet comes in from the uplink and is handed to the worker-b port.'])],
+  [cap('node',C`# debug shell on worker-b
+tcpdump -nni genev_sys_6081 tcp port 8080 -c 10
+tcpdump -nni <web-2-veth> tcp port 8080 -c 10`,
+   ['genev_sys_6081 是解封裝後的介面,看到的已經是 Pod IP。','genev_sys_6081 is the decapsulated side, so you already see pod IPs there.'])]
+ ],
+ [ // F3 egress to Harbor
+  [cap('pc',C`kubectl -n pw-demo exec deploy/pw-app -- wget -T 3 --spider https://10.0.0.86/`,
+   ['憑證錯誤沒關係,有送出 SYN 就抓得到。後面每一步都重送一次。','A certificate error is fine; the SYN is all you need. Resend it for every step below.'])],
+  [cap('node',C`# debug shell on the node that runs app-1
+tcpdump -nni <app-1-veth> host 10.0.0.86 -c 5
+tcpdump -nni eth0 host 10.0.0.86 -c 5`,
+   ['同一條連線,veth 上來源是 Pod IP,eth0 上變成節點 IP:SNAT 在節點裡做。','Same connection: the source is the pod IP on the veth and the node IP on eth0, so SNAT happens inside the node.'])],
+  [cap('node',C`ip route get 10.0.0.86
+ip neigh show dev eth0
+tcpdump -nni eth0 -e host 10.0.0.86 -c 5`,
+   ['via 閘道 .1;ip neigh 列出閘道 MAC,tcpdump -e 的目的 MAC 就是它。記下來下一步比對。','via gateway .1. ip neigh lists the gateway MAC, which matches the destination MAC in tcpdump -e. Note it for the next step.'])],
+  [cap('esx',C`# ESXi that runs app-1's node: before the DR (VM port)
+pktcap-uw --switchport <port-id> --dir 2 --ip 10.0.0.86 -c 10 -o - | tcpdump-uw -venr -`,
+   ['進 DR 之前:TTL 還是 64,目的 MAC 是閘道 MAC。','Before the DR: TTL is still 64 and the destination MAC is the gateway MAC.']),
+   cap('dr',DR_CMD,
+   ['看 DR 本身:interfaces 裡有 192.168.33.1 的 LIF,forwarding 的預設路由指向 192.168.47.254,neighbor 有路由器的 ARP。9.1 VPC 的 DR 名稱和舊版不同,先看 get logical-routers 的清單。最後一行列出這版 ESXi 有沒有 Vdr 開頭的 capture point;沒有就用前後兩個點比對。','The DR itself: interfaces shows the LIF that owns 192.168.33.1, forwarding sends 0.0.0.0/0 to 192.168.47.254, and neighbor holds the router ARP entry. DR names on 9.1 VPCs differ from older releases, so start from the get logical-routers list. The last line shows whether this ESXi build has Vdr capture points; if not, compare the two points before and after.'])],
+  [cap('esx',C`# after the DR (uplink)
+pktcap-uw --uplink <team-uplink> --dir 2 --ip 10.0.0.86 -c 10 -o - | tcpdump-uw -venr -`,
+   ['出了 DR 上 uplink:TTL 63、帶 vlan 8,MAC 也換了(目的是路由器)。前後兩點的差異就是 DTGW 在這台主機做的路由。','After the DR, on the uplink: TTL 63, vlan 8, and new MACs (destination: the router). The difference between the two points is the routing the DTGW did on this host.'])],
+  [cap('ros',C`/tool sniffer quick ip-address=10.0.0.86 port=443
+/ip arp print where interface=ether7`,
+   ['lab 的 VLAN 8 在 RouterOS 的 ether7。ARP 表裡節點 IP 對到的 MAC 就是回程送去的地方:跟節點 eth0 的 MAC 一樣,代表 VM 自己回 ARP;不一樣就是 DTGW 代答。','In the lab VLAN 8 is on RouterOS ether7. The MAC RouterOS holds for a node IP is where return traffic goes: the node eth0 MAC means the VM answers ARP itself; anything else means the DTGW answers for it.']),
+   cap('harbor',C`sudo tcpdump -nni any tcp port 443 and net 192.168.32.0/20 -c 10`,
+   ['Harbor 看到的來源是節點 IP(33.x),不是 Pod IP。','Harbor sees the node IP (33.x), not the pod IP.'])]
+ ],
+ [ // F4 outside to LoadBalancer
+  [cap('pc',C`kubectl -n pw-demo get svc pw-lb        # EXTERNAL-IP = VIP, PORT(S) 80:<nodeport>
+curl -v http://<vip>/`,
+   ['記下 VIP 和 NodePort(PORT(S) 冒號後面那個)。','Note the VIP and the NodePort (the number after the colon in PORT(S)).'])],
+  [cap('ros',C`/ip arp print where address="<vip>"
+/tool sniffer quick ip-address=<vip> port=80`,
+   ['VIP 的 ARP 對到的 MAC,應該是 VNA 在 VLAN 8 那張網卡的 MAC(下一步在 ESXi 對照)。','The MAC for the VIP should be the MAC of the VNA NIC on VLAN 8 (check it on ESXi next).'])],
+  [cap('esx',C`# ESXi that runs the VNA
+esxcli network vm list | grep -i vna
+esxcli network vm port list -w <vna-world-id>`,
+   ['VNA 有好幾張網卡,找 Portgroup 在 VLAN 8 / VPC 的那張,MAC 應該跟 RouterOS 的 ARP 一樣。','The VNA has several NICs. Pick the one whose Portgroup is on VLAN 8 / the VPC; its MAC should match the RouterOS ARP entry.'])],
+  [cap('sr',SR_CMD,
+   ['看 SR 本身:get load-balancer 會列出這個 VPC 的 LB 和 VIP 192.168.40.0:80;get interfaces 找 VLAN 8 那張的 UUID,start capture 直接在 SR 介面上抓。VNA 的 CLI 預期和 NSX Edge 相同但沒驗證過,連不上或指令不同就用下面 ESXi 那段。','The SR itself: get load-balancer lists the VPC LB and the VIP 192.168.40.0:80; get interfaces gives the VLAN 8 interface UUID, and start capture captures right on the SR interface. The VNA CLI is expected to match the NSX Edge CLI but this is untested; if it differs, use the ESXi lines below.']),
+   cap('esx',C`pktcap-uw --switchport <vna-data-port-id> --dir 2 --ip <your-pc-ip> -c 20 -o - | tcpdump-uw -nr -
+pktcap-uw --switchport <vna-data-port-id> --dir 2 --tcpport <nodeport> -c 20 -o - | tcpdump-uw -nr -`,
+   ['第一行看到 你的電腦 → VIP:80;第二行看到 VNA 自己的 IP → 節點:NodePort。來源換掉了,就是 SR 上的 LB 做了 SNAT。','The first line shows your PC → VIP:80; the second shows the VNA\'s own IP → node:NodePort. The changed source is the SNAT done by the LB on the SR.'])],
+  [cap('esx',C`pktcap-uw --uplink <team-uplink> --dir 2 --tcpport <nodeport> -c 20 -o - | tcpdump-uw -enr -`,
+   ['vlan 8 上的一般 TCP,沒有 Geneve。VNA 和 worker 在同一台主機時這裡抓不到。','Plain TCP on vlan 8, no Geneve. If the VNA and the worker share a host you see nothing here.'])],
+  [cap('node',C`# debug shell on the worker
+tcpdump -nni eth0 tcp port <nodeport> -c 10`,
+   ['來源是 VNA 的 IP,不是你的電腦。','The source is the VNA IP, not your PC.'])],
+  [cap('node',C`tcpdump -nni any tcp port 8080 -c 10`,
+   ['NodePort 被 DNAT 成 Pod IP:8080。如果挑到別台的 Pod,這台的 eth0 上會再出現 UDP 6081。','The NodePort is DNATed to pod IP:8080. If a pod on another node is picked, UDP 6081 shows up on this node\'s eth0 again.'])],
+  [cap('node',C`tcpdump -nni <web-2-veth> tcp port 8080 -c 10`,
+   ['web Pod 看到的來源是 VNA 的 IP;從別台節點轉過來的,來源會變成那台節點的 IP。','The web pod sees the VNA IP as the source; if it was forwarded from another node, the source is that node\'s IP.'])]
+ ],
+ [ // F5 kubectl to cluster API
+  [cap('sv',C`kubectl config use-context $NS
+kubectl -n $NS get cluster $CL -o jsonpath='{.spec.controlPlaneEndpoint.host}{"\n"}'
+kubectl -n $NS get virtualmachineservice`,
+   ['第一行是叢集 API 的 VIP;VirtualMachineService 是 Supervisor 替叢集在 VNA 上建的 LB。','The first line is the cluster API VIP. The VirtualMachineService is the LB the Supervisor created on the VNA for the cluster.'])],
+  [cap('ros',C`/tool sniffer quick ip-address=<api-vip> port=6443`,
+   ['在你的電腦跑一次 kubectl get node,這裡就會看到 你的電腦 → VIP:6443。','Run kubectl get node once on your PC and you will see your PC → VIP:6443 here.'])],
+  [cap('sr',C`get load-balancer                       # the cluster API VIP :6443 is listed here
+start capture interface <interface-uuid> direction dual`,
+   ['SR 上看得到這個 VIP 和它的 pool(control plane 的 6443)。','The SR lists this VIP and its pool (port 6443 on the control plane).']),
+   cap('esx',C`pktcap-uw --switchport <vna-data-port-id> --dir 2 --tcpport 6443 -c 20 -o - | tcpdump-uw -nr -`,
+   ['同時看得到 你的電腦 → VIP:6443 和 VNA IP → control plane:6443。','You see both your PC → VIP:6443 and VNA IP → control plane:6443.'])],
+  [cap('esx',C`pktcap-uw --uplink <team-uplink> --dir 2 --tcpport 6443 -c 20 -o - | tcpdump-uw -enr -`,
+   ['VNA 和 control plane 在同一台主機時,uplink 上只有用戶端那段;不同主機才會看到 VNA → CP。','If the VNA and the control plane share a host, the uplink only shows the client side; VNA → CP appears only when they are on different hosts.'])],
+  [cap('node',C`# debug shell on the control plane node
+tcpdump -nni eth0 tcp port 6443 -c 10`,
+   ['來源是 VNA 的 IP。debug pod 用 nodeName 指定節點,不受 control plane 的 taint 影響。','The source is the VNA IP. The debug pod is pinned by nodeName, so the control plane taint does not block it.'])]
+ ],
+ [ // F6 cluster to Supervisor API
+  [cap('pc',C`kubectl -n default get endpoints supervisor -o wide
+kubectl -n vmware-system-csi get pod -o wide
+kubectl -n vmware-system-cloud-provider get pod -o wide`,
+   ['endpoints 是 Supervisor 的 API VIP(m01 是 192.168.32.6)。後兩行看 pvCSI、CPI 跑在哪個節點,就去那個節點抓。','The endpoints point at the Supervisor API VIP (192.168.32.6 on m01). The other two lines show which node runs pvCSI and CPI; capture on that node.'])],
+  [cap('node',C`ip route get 192.168.32.6
+tcpdump -nni eth0 -e host 192.168.32.6 -c 10`,
+   ['via 閘道 .1:要經過本機的 DR(DTGW)路由。','via gateway .1: it is routed by the local DR (DTGW).']),
+   cap('dr',C`nsxcli -c "get logical-routers"
+nsxcli -c "get logical-router <dr-uuid> forwarding"    # which route covers 192.168.32.6
+nsxcli -c "get logical-router <dr-uuid> neighbor"`,
+   ['看 DR 用哪條路由把 192.168.32.6 送出去。','See which DR route carries 192.168.32.6.'])],
+  [cap('sr',C`get load-balancer                       # Supervisor API VIP 192.168.32.6:6443`,
+   ['Supervisor API 的 VIP 也在 SR 上。','The Supervisor API VIP lives on the SR too.']),
+   cap('esx',C`pktcap-uw --switchport <vna-data-port-id> --dir 2 --ip 192.168.32.6 -c 20 -o - | tcpdump-uw -nr -`,
+   ['Supervisor VIP 的連線進到 VNA。','Connections to the Supervisor VIP arrive at the VNA.'])],
+  [cap('esx',C`# ESXi that runs the Supervisor CP VM
+esxcli network vm list | grep -i supervisor
+esxcli network vm port list -w <world-id>
+pktcap-uw --switchport <workload-nic-port-id> --dir 2 --tcpport 6443 -c 20 -o - | tcpdump-uw -nr -`,
+   ['Supervisor CP VM 有管理 NIC(m01 是 10.0.1.92–96 那段)和工作負載 NIC,看 Portgroup 選工作負載那張。來源會是 VNA 的 IP。','The Supervisor CP VM has a management NIC (10.0.1.92–96 on m01) and a workload NIC; pick the workload one by Portgroup. The source will be the VNA IP.'])],
+  [cap('vc',C`/usr/lib/vmware-wcp/decryptK8Pwd.py
+ssh root@<cp-mgmt-ip>
+ip -br addr`,
+   ['另一條路:decryptK8Pwd 印出 CP VM 的 IP 和密碼,登進去用 ip -br addr 看工作負載網卡。CP VM 是受保護的,只看不改。','Another way in: decryptK8Pwd prints the CP VM IP and password; log in and use ip -br addr to find the workload NIC. The CP VM is protected, so look only.'])]
+ ],
+ [ // F7 NFS over eth1
+  [cap('node',C`# debug shell on a worker that has eth1 (m02-style build)
+grep nfs /proc/1/mounts`,
+   ['m01 沒有 eth1 / NFS VLAN,這條要在 m02 那種架構才試得到。這行列出 PVC 的 NFS 掛載點。','m01 has no eth1 / NFS VLAN; this path needs an m02-style build. This lists the NFS mounts behind the PVCs.'])],
+  [cap('node',C`ip route get 192.168.17.20
+tcpdump -nni eth1 tcp port 2049 -c 10`,
+   ['dev eth1、不經 33.1;eth0 上抓 2049 什麼都沒有。','dev eth1, not via 33.1; eth0 shows nothing on port 2049.'])],
+  [cap('esx',C`esxcli network vm port list -w <world-id>        # pick the nas-vlan7 port
+pktcap-uw --switchport <eth1-port-id> --dir 2 --tcpport 2049 -c 20 -o - | tcpdump-uw -enr -`,
+   ['eth1 那張的 Portgroup 是 nas-vlan7。','The eth1 port group is nas-vlan7.'])],
+  [cap('esx',C`pktcap-uw --uplink <team-uplink> --dir 2 --tcpport 2049 -c 20 -o - | tcpdump-uw -enr -`,
+   ['帶 vlan 7,直接往 NAS,不經 DR、SR,也不經路由器。','Tagged vlan 7 and sent straight to the NAS: no DR, no SR, no router.'])],
+  [cap('nas',C`sudo ss -tn '( sport = :2049 )'`,
+   ['只有 192.168.17.6x 的連線。硬關機留下的舊 session 用 sudo ss -K dst <ip> 清。','Only 192.168.17.6x connections. Clear stale sessions left by a hard power-off with sudo ss -K dst <ip>.'])]
+ ]
+];
+FLOWS.forEach(function(f,i){f.steps.forEach(function(s,j){s.cap=(CAPS[i]&&CAPS[i][j])||[];});});
+
+/* ---------- capture setup view ---------- */
+var DEMO_YAML=C`apiVersion: v1
+kind: Namespace
+metadata:
+  name: pw-demo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pw-web
+  namespace: pw-demo
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: pw-web}
+  template:
+    metadata:
+      labels: {app: pw-web}
+    spec:
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels: {app: pw-web}
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+      - name: nginx
+        image: harbor01.home.lab/vks-apps/nginx-unprivileged:1.30.4-alpine
+        ports:
+        - containerPort: 8080
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities: {drop: ["ALL"]}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pw-app
+  namespace: pw-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: pw-app}
+  template:
+    metadata:
+      labels: {app: pw-app}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+      - name: client
+        image: harbor01.home.lab/vks-apps/busybox:1.37.0
+        command: ["sleep", "86400"]
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities: {drop: ["ALL"]}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pw-lb
+  namespace: pw-demo
+spec:
+  type: LoadBalancer
+  selector: {app: pw-web}
+  ports:
+  - {name: http, port: 80, targetPort: 8080, protocol: TCP}`;
+var TOOLS=[
+  [['Pod / 節點','Pod / node'],'tcpdump (netshoot), Antrea Traceflow',['kubectl debug node','kubectl debug node']],
+  [['DR(DTGW,每台 ESXi kernel)','DR (DTGW, in every ESXi kernel)'],'nsxcli get logical-router…, pktcap-uw',['ESXi SSH','ESXi SSH']],
+  [['SR(VNA:LB / NAT)','SR (VNA: LB / NAT)'],['VNA CLI(get load-balancer、start capture);或在 ESXi 抓 VNA 的 vNIC','VNA CLI (get load-balancer, start capture), or capture its vNIC on ESXi'],['VNA SSH / ESXi SSH','VNA SSH / ESXi SSH']],
+  [['VDS / uplink','VDS / uplink'],'pktcap-uw + tcpdump-uw',['ESXi SSH','ESXi SSH']],
+  ['Supervisor CP VM',['在 ESXi 抓它的 vNIC;或 decryptK8Pwd 登入','Capture its vNIC on ESXi, or log in via decryptK8Pwd'],['ESXi SSH / vCenter shell','ESXi SSH / vCenter shell']],
+  [['實體路由器','Physical router'],'/tool sniffer, /ip arp',['RouterOS SSH','RouterOS SSH']],
+  ['Harbor / NAS','tcpdump, ss','SSH']
+];
+var SETUP=[
+  {t:['1. 變數與登入','1. Variables and login'],
+   p:['Supervisor VIP、namespace、叢集名稱是 m01 的值。Windows 上用 Git Bash 跑就好。步驟標「Supervisor」的指令,先切到 $NS 那個 context。','The Supervisor VIP, namespace and cluster name are the m01 values. Git Bash on Windows works. For steps marked Supervisor, switch to the $NS context first.'],
+   c:C`export SV=192.168.32.6 NS=vks-lab CL=vks-cl01 REG=harbor01.home.lab    # m01
+kubectl vsphere login --server=$SV -u administrator@vsphere.local --insecure-skip-tls-verify \
+  --tanzu-kubernetes-cluster-namespace $NS --tanzu-kubernetes-cluster-name $CL
+kubectl config use-context $CL     # cluster
+kubectl config use-context $NS     # Supervisor namespace`},
+  {t:['2. 把 netshoot 放進 Harbor','2. Put netshoot into Harbor'],
+   p:['在能上網、有 docker 的機器做。叢集只從 Harbor 拉 image。','Do this on a machine with internet access and docker. The cluster pulls images from Harbor only.'],
+   c:C`docker pull nicolaka/netshoot:v0.13
+docker tag nicolaka/netshoot:v0.13 $REG/vks-apps/netshoot:v0.13
+docker login $REG
+docker push $REG/vks-apps/netshoot:v0.13`},
+  {t:['3. 抓包用的 namespace','3. A namespace for capture pods'],
+   p:['VKS 預設 PSA 是 restricted,tcpdump 需要的權限會被擋。只放寬這個 namespace,用完整個刪掉。','VKS enforces the restricted Pod Security level by default, which blocks what tcpdump needs. Relax only this namespace and delete it when done.'],
+   c:C`kubectl create ns netdebug
+kubectl label ns netdebug pod-security.kubernetes.io/enforce=privileged`},
+  {t:['4. 部署 demo','4. Deploy the demo'],
+   p:['圖上的 app-1 = pw-app,web-1 / web-2 = pw-web 的兩個 Pod。image 用 Harbor 裡已有的 nginx-unprivileged 和 busybox。檔案也放在 repo 的 packet-walk/lab/pw-demo.yaml。','In the diagram, app-1 = pw-app and web-1 / web-2 = the two pw-web pods. The images are the nginx-unprivileged and busybox already in Harbor. The file is also in the repo at packet-walk/lab/pw-demo.yaml.'],
+   c:C`kubectl apply -f pw-demo.yaml
+kubectl -n pw-demo get pod,svc -o wide`, demo:true},
+  {t:['5. m01 只有 1 個 worker','5. m01 has one worker'],
+   p:['跨節點的路徑要 2 個 worker。nested 主機 CPU 要夠,做完可以改回 1。','The cross-node paths need two workers. The nested hosts need spare CPU; set it back to 1 afterwards.'],
+   c:C`kubectl config use-context $NS
+kubectl -n $NS patch cluster $CL --type json \
+  -p '[{"op":"replace","path":"/spec/topology/workers/machineDeployments/0/replicas","value":2}]'
+kubectl config use-context $CL
+kubectl get node -o wide`},
+  {t:['6. 開節點 debug shell','6. Open a node debug shell'],
+   p:['debug pod 跑在節點的 network namespace,eth0、eth1、antrea-gw0、genev_sys_6081 都看得到。標「節點 debug shell」的指令都在這裡面跑。','The debug pod runs in the node network namespace, so eth0, eth1, antrea-gw0 and genev_sys_6081 are all visible. Commands marked Node debug shell run in here.'],
+   c:C`kubectl get node -o wide
+kubectl debug node/<node> -n netdebug -it --profile=sysadmin \
+  --image=$REG/vks-apps/netshoot:v0.13 -- bash
+# clean up afterwards
+kubectl -n netdebug delete pod --all`},
+  {t:['7. 找 Pod 的 veth','7. Find a pod veth'],
+   p:['INTERFACE-NAME 就是 Pod 在節點上的 veth。要在 Pod 所在節點的 antrea-agent 上查。','INTERFACE-NAME is the pod veth on the node. Ask the antrea-agent on the node that runs the pod.'],
+   c:C`kubectl -n kube-system get pod -l component=antrea-agent -o wide
+kubectl -n kube-system exec <antrea-agent-on-that-node> -c antrea-agent -- \
+  antctl get podinterface -n pw-demo`},
+  {t:['8. ESXi:開 SSH、找 VM 的埠','8. ESXi: enable SSH, find VM ports'],
+   p:['nested ESXi 部署完 SSH 是關的。VM 在哪台主機看 vCenter。--dir 2 是雙向,用 --ip / --tcpport / --udpport 過濾,-o /tmp/x.pcap 存檔後 scp 回來用 Wireshark 看。','SSH is off on the nested ESXi hosts after deployment. Check vCenter for which host runs a VM. --dir 2 captures both directions; filter with --ip / --tcpport / --udpport, or save with -o /tmp/x.pcap and scp it back for Wireshark.'],
+   c:C`# PowerCLI on your PC
+Connect-VIServer vcf-m01-vc01.home.lab
+Get-VMHost | Get-VMHostService | Where-Object Key -eq 'TSM-SSH' | Start-VMHostService
+# ESXi shell
+ssh root@vcf-m01-esx01.home.lab
+esxcli network vm list                         # World ID by VM name
+esxcli network vm port list -w <world-id>      # Port ID, Portgroup, MAC, Team Uplink
+pktcap-uw --switchport <port-id> --dir 2 -c 20 -o - | tcpdump-uw -enr -
+pktcap-uw --uplink <team-uplink> --dir 2 -c 20 -o - | tcpdump-uw -enr -`},
+  {t:['9. DR 和 SR 在哪','9. Where the DR and SR are'],
+   p:['VLAN-backed VPC 沒有 Edge。DR 是每台 ESXi kernel 裡的 DTGW(VPC 閘道和 TGW 各一個),在 ESXi 用 nsxcli 看。SR 的角色在 VNA 上:LB、NAT 這些有狀態的服務都在那裡,VIP 也在那裡。VNA 的 CLI 預期和 NSX Edge 一樣,但還沒在 lab 驗證過;連不上就在 ESXi 抓 VNA 的 vNIC。NSX UI 的 Traceflow(Plan & Troubleshoot → Traffic Analysis)也能看到經過哪些 DR / SR。','A VLAN-backed VPC has no Edge. The DR is the DTGW in every ESXi kernel (one for the VPC gateway, one for the TGW); inspect it with nsxcli on ESXi. The SR role lives on the VNA: stateful services such as LB and NAT, and the VIPs, are there. The VNA CLI is expected to match the NSX Edge CLI but is untested in the lab; if it does not work, capture the VNA vNIC on ESXi. Traceflow in the NSX UI (Plan & Troubleshoot → Traffic Analysis) also shows which DR / SR a packet crosses.'],
+   c:C`# DR (on any ESXi host)
+`+DR_CMD+C`
+
+# SR (on the VNA)
+`+SR_CMD},
+  {t:['10. RouterOS','10. RouterOS'],
+   p:['lab 的 VLAN 8(192.168.47.254/20)在 RouterOS 的 ether7。sniffer 按 Q 結束。','In the lab VLAN 8 (192.168.47.254/20) is on RouterOS ether7. Press Q to stop the sniffer.'],
+   c:C`ssh admin@10.0.1.254
+/ip arp print where interface=ether7
+/tool sniffer quick ip-address=<ip> port=<port>`},
+  {t:['11. 驗證本頁的三個假設','11. Check three assumptions on this page'],
+   p:['(a)本頁假設 Antrea 是 encap + Geneve。(b)Pod MTU 預期 1450。(c)本頁沒確認的部分:RouterOS 記的節點 MAC 和節點 eth0 的 MAC 一樣,就是 VM 自己回 ARP。','(a) This page assumes Antrea runs encap + Geneve. (b) Expect a pod MTU of 1450. (c) The part this page could not confirm: if RouterOS holds the node eth0 MAC for a node IP, the VM answers ARP itself.'],
+   c:C`# a) your PC, cluster context
+kubectl -n kube-system get cm -o name | grep antrea
+kubectl -n kube-system get cm <antrea-config> -o yaml | grep -E 'trafficEncapMode|tunnelType'
+# b) node debug shell
+ip link show antrea-gw0
+# c) RouterOS, then node debug shell
+/ip arp print where address="<node-ip>"
+ip link show eth0`}
 ];
 
 /* ---------- geometry ---------- */
@@ -777,6 +1165,62 @@ function renderPanel(f,s){
   }
   $('#prev').disabled=S===0;
   $('#next').disabled=S===f.steps.length-1;
+  renderCap(s);
+}
+/* ---------- capture blocks ---------- */
+function el(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e;}
+function copyText(text,pre,b){
+  function done(){b.textContent=ui('copied');setTimeout(function(){b.textContent=ui('copy');},1400);}
+  function fallback(){try{var r=document.createRange();r.selectNodeContents(pre);var sel=window.getSelection();sel.removeAllRanges();sel.addRange(r);}catch(e){}b.textContent=ui('selected');setTimeout(function(){b.textContent=ui('copy');},1800);}
+  try{if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(done,fallback);else fallback();}catch(e){fallback();}
+}
+function codeBlock(text){
+  var wrap=el('div','code'),pre=el('pre',null,text),b=el('button','copy',ui('copy'));
+  b.type='button';b.addEventListener('click',function(){copyText(text,pre,b);});
+  wrap.appendChild(pre);wrap.appendChild(b);return wrap;
+}
+function capItem(c){
+  var d=el('div','capi');
+  d.appendChild(el('span','where w-'+c.w,tr(W[c.w])));
+  d.appendChild(codeBlock(c.c));
+  d.appendChild(el('p','see',tr(c.s)));
+  return d;
+}
+function renderCap(s){
+  var box=$('#cap');box.innerHTML='';
+  var h=el('div','cap-h');h.appendChild(el('b',null,ui('capH')));
+  var a=el('a',null,ui('capSetup'));a.href='#capture';h.appendChild(a);
+  box.appendChild(h);
+  (s.cap||[]).forEach(function(c){box.appendChild(capItem(c));});
+}
+function renderSetup(){
+  var root=$('#setup');root.innerHTML='';
+  root.appendChild(el('h2',null,tr(['抓包準備','Capture setup'])));
+  root.appendChild(el('p','warn',tr(['這些指令照 m01 / m02 實測過的架構整理,但還沒在 lab 從頭到尾跑過(m02 已拆、m01 目前關機)。先在 lab 試,有不對的地方再修。圖上數值是 m02,m01 的實際值用下面的指令查。','These commands follow the architecture measured on m01 / m02, but they have not been run end to end in the lab yet (m02 is gone and m01 is powered off). Try them in the lab first and fix what does not match. The diagram uses m02 values; look up the m01 values with the commands below.'])));
+  root.appendChild(el('h3',null,tr(['每一層用什麼抓','What to use at each layer'])));
+  var tw=el('div','tblwrap'),tb=el('table','tbl'),thead=el('thead'),hr=el('tr');
+  [['層','Layer'],['工具','Tool'],['在哪裡跑','Where']].forEach(function(x){hr.appendChild(el('th',null,tr(x)));});
+  thead.appendChild(hr);tb.appendChild(thead);
+  var tbody=el('tbody');
+  TOOLS.forEach(function(r){var tr_=el('tr');r.forEach(function(x){tr_.appendChild(el('td',null,tr(x)));});tbody.appendChild(tr_);});
+  tb.appendChild(tbody);tw.appendChild(tb);root.appendChild(tw);
+  SETUP.forEach(function(sx){
+    root.appendChild(el('h3',null,tr(sx.t)));
+    root.appendChild(el('p',null,tr(sx.p)));
+    root.appendChild(codeBlock(sx.c));
+    if(sx.demo){root.appendChild(el('p',null,'pw-demo.yaml'));root.appendChild(codeBlock(DEMO_YAML));}
+  });
+  root.appendChild(el('h3',null,tr(['所有路徑的指令','Commands for every path'])));
+  root.appendChild(el('p',null,tr(['和封包路徑視圖每一跳下面的指令相同,集中在這裡方便照順序跑。','The same commands shown under each hop in the packet walk, collected here so you can run them in order.'])));
+  FLOWS.forEach(function(f){
+    var d=el('details','fc');d.appendChild(el('summary',null,tr(f.n)));
+    f.steps.forEach(function(s,i){
+      if(!s.cap||!s.cap.length)return;
+      d.appendChild(el('h4',null,(i+1)+'. '+tr(s.t)));
+      s.cap.forEach(function(c){d.appendChild(capItem(c));});
+    });
+    root.appendChild(d);
+  });
 }
 function go(i,animate,done){
   var f=FLOWS[F];S=Math.max(0,Math.min(i,f.steps.length-1));
@@ -867,9 +1311,9 @@ function setLang(l,save){
   document.title=ui('title');
   Array.prototype.forEach.call(document.querySelectorAll('.seg2 button'),function(b){b.setAttribute('aria-pressed',String(b.getAttribute('data-lang')===LANG));});
   $('#prev').textContent=ui('prev');$('#next').textContent=ui('next');setPlayLabel();setThemeLabel();
-  build();renderFlows();go(S,false);
+  build();renderFlows();go(S,false);renderSetup();
   if(!$('#v-walk').hidden)fitAll();
-  if(save){store('vks-walk-lang',LANG);try{var u=new URL(location.href);u.searchParams.set('lang',LANG);history.replaceState(null,'',u);}catch(e){}}
+  if(save){store('vks-walk-lang',LANG);if(VARIANT==='standalone'){try{var u=new URL(location.href);u.searchParams.set('lang',LANG);history.replaceState(null,'',u);}catch(e){}}}
 }
 Array.prototype.forEach.call(document.querySelectorAll('.seg2 button'),function(b){
   b.addEventListener('click',function(){setLang(b.getAttribute('data-lang'),true);});
@@ -884,7 +1328,7 @@ function applyTheme(t){
 $('#theme').addEventListener('click',function(){var n=THEME==='auto'?'dark':THEME==='dark'?'light':'auto';applyTheme(n);store('vks-walk-theme',n);});
 
 /* ---------- views ---------- */
-var VIEWS=['walk','ip','compare'];
+var VIEWS=['walk','ip','compare','capture'];
 function showView(v){
   if(VIEWS.indexOf(v)<0)v='walk';
   VIEWS.forEach(function(x){
@@ -900,7 +1344,8 @@ window.addEventListener('hashchange',function(){showView(location.hash.slice(1))
 var qs=null;try{qs=new URLSearchParams(location.search).get('lang');}catch(e){}
 var startLang=qs||store('vks-walk-lang')||((navigator.language||'').toLowerCase().indexOf('zh')===0?'zh':'en');
 var savedTheme=store('vks-walk-theme');
-applyTheme(savedTheme==='dark'||savedTheme==='light'?savedTheme:'auto');
+if(VARIANT==='artifact'){$('#theme').hidden=true;}  /* the host page controls the theme */
+else applyTheme(savedTheme==='dark'||savedTheme==='light'?savedTheme:'auto');
 showView(location.hash.slice(1));
 setLang(startLang,false);
 })();
